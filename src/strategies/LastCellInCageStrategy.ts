@@ -1,15 +1,14 @@
-import type { CellChange } from '../cellChanges/CellChange.ts';
 import type {
   Cell,
-  CellValueSetter,
   Puzzle
 } from '../Puzzle.ts';
 import type {
+  ChangeGroup,
   Strategy,
   StrategyResult
 } from './Strategy.ts';
 
-import { buildAutoEliminateChanges } from '../cageConstraints.ts';
+import { buildAutoEliminateGroup } from '../cageConstraints.ts';
 import { CandidatesStrikethrough } from '../cellChanges/CandidatesStrikethrough.ts';
 import { ensureNonNullable } from '../typeGuards.ts';
 
@@ -17,8 +16,7 @@ const BINARY_CELL_COUNT = 2;
 
 export class LastCellInCageStrategy implements Strategy {
   public tryApply(puzzle: Puzzle): null | StrategyResult {
-    const valueSetters: CellValueSetter[] = [];
-    const eliminations: CandidatesStrikethrough[] = [];
+    const changeGroups: ChangeGroup[] = [];
     const affectedRefs: string[] = [];
 
     for (const cage of puzzle.cages) {
@@ -57,19 +55,18 @@ export class LastCellInCageStrategy implements Strategy {
       affectedRefs.push(lastCell.ref);
       if (validCandidates.size === 1) {
         const value = ensureNonNullable([...validCandidates][0]);
-        valueSetters.push({ cell: lastCell, value });
+        changeGroups.push(buildAutoEliminateGroup({ cell: lastCell, value }, lastCell.ref));
       } else {
-        eliminations.push(new CandidatesStrikethrough(lastCell, toEliminate));
+        changeGroups.push({ changes: [new CandidatesStrikethrough(lastCell, toEliminate)], reason: lastCell.ref });
       }
     }
 
-    if (valueSetters.length === 0 && eliminations.length === 0) {
+    if (changeGroups.length === 0) {
       return null;
     }
 
-    const changes: CellChange[] = [...buildAutoEliminateChanges(valueSetters), ...eliminations];
     return {
-      changes,
+      changeGroups,
       note: `Last cell in cage. ${affectedRefs.join(', ')}`
     };
   }
@@ -179,13 +176,12 @@ export class LastCellInCageStrategy implements Strategy {
     switch (operator) {
       case '-':
         return this.computeForSubtraction(solvedValues, cageValue, puzzleSize);
-      case '*':
-      case 'x':
-        return this.computeForMultiplication(solvedValues, cageValue, puzzleSize);
       case '/':
         return this.computeForDivision(solvedValues, cageValue, puzzleSize);
       case '+':
         return this.computeForAddition(solvedValues, cageValue, puzzleSize);
+      case 'x':
+        return this.computeForMultiplication(solvedValues, cageValue, puzzleSize);
       default:
         return new Set<number>();
     }

@@ -29,11 +29,12 @@ describe('DeterminedByCageStrategy', () => {
 
     const result = strategy.tryApply(puzzle);
     expect(result).not.toBeNull();
-    const { changes, note } = ensureNonNullable(result);
+    const r = ensureNonNullable(result);
+    const changes = r.changeGroups.flatMap((g) => g.changes);
 
     const valueChanges = changes.filter((c) => c instanceof ValueChange);
     expect(valueChanges.some((c) => c.cell.ref === 'A1' && c.value === 3)).toBe(true);
-    expect(note).toBe('Determined by cage. A1');
+    expect(r.note).toBe('Determined by cage. A1');
   });
 
   it('determines cell value with addition operator', () => {
@@ -50,7 +51,7 @@ describe('DeterminedByCageStrategy', () => {
 
     const result = strategy.tryApply(puzzle);
     expect(result).not.toBeNull();
-    const { changes } = ensureNonNullable(result);
+    const changes = ensureNonNullable(result).changeGroups.flatMap((g) => g.changes);
 
     const valueChanges = changes.filter((c) => c instanceof ValueChange);
     expect(valueChanges.some((c) => c.cell.ref === 'A1' && c.value === 3)).toBe(true);
@@ -73,7 +74,7 @@ describe('DeterminedByCageStrategy', () => {
 
     const result = strategy.tryApply(puzzle);
     expect(result).not.toBeNull();
-    const { changes } = ensureNonNullable(result);
+    const changes = ensureNonNullable(result).changeGroups.flatMap((g) => g.changes);
 
     const valueChanges = changes.filter((c) => c instanceof ValueChange);
     expect(valueChanges.some((c) => c.cell.ref === 'A1' && c.value === 5)).toBe(true);

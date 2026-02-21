@@ -13,7 +13,7 @@ export class FillAllCandidatesStrategy implements Strategy {
       .filter((cell) => !cell.isSolved)
       .map((cell) => new CandidatesChange(cell, allValues));
     return changes.length > 0
-      ? { changes, note: 'Filling all candidates' }
+      ? { changeGroups: [{ changes, reason: 'initial candidates' }], note: 'Filling all candidates' }
       : null;
   }
 }

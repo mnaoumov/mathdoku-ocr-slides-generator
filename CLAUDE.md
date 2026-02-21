@@ -46,7 +46,7 @@ Puzzle state stored in DocumentProperties as JSON.
 The Apps Script code follows an MVC pattern:
 - **Puzzle** (model+logic in `Puzzle.ts`): maintains cell values/candidates, parses Enter commands, runs strategies
 - **SlidesRenderer** (view in `View.ts`): implements `PuzzleRenderer` interface, handles all Google Slides rendering
-- **Strategies** (one file each): implement `Strategy` interface, called by Puzzle's strategy loop
+- **Strategies** (one file each): implement `Strategy` interface, called by Puzzle's strategy loop. Each strategy returns `StrategyResult` with `changeGroups: ChangeGroup[]` (each group pairs changes with a reason) and a `note` string
 
 Flow:
 1. **Enter**: Opens modal dialog. User input parsed by `Puzzle.buildEnterChanges()`. Changes rendered in green via `renderPendingChanges` (duplicates slide first, then applies green).
@@ -95,6 +95,16 @@ Note: `selectAsCurrentPage()` is the only Google Slides API for navigating to a 
 - `.editorconfig`: 2-space indent, LF line endings, UTF-8
 
 ## Conventions
+
+### IMPORTANT: Traceability Rule
+
+**No candidate eliminations or puzzle changes are made without a clear, human-readable, mentally traceable explanation.** Every elimination recorded in slide notes must have a reason a human can verify by inspection (e.g., "5 doesn't divide 72", "1 too small", "6 too big"). If a strategy cannot provide such an explanation for a particular elimination, that elimination must not be made. If brute-force enumeration is used, it must have a reasonably small number of options that a human can validate without writing anything down.
+
+This is enforced structurally: `StrategyResult.changeGroups` is an array of `ChangeGroup`, where each group has `changes: CellChange[]` and `reason: string`. Every change must belong to a group with an explanation. Consumers flatten groups via `changeGroups.flatMap(g => g.changes)`.
+
+### Operator normalization
+
+Cage operators are normalized to `'x'` (not `'*'`) in the `Cage` constructor. Strategy code should only check for `'x'`, never `'*'`. The `combinatorics.ts` and `View.ts` files retain defensive `'*'` handling for external input.
 
 - Generate slides: `npm run makeMathdokuSlides tests/fixtures/Blog15.yaml`
 - Run OCR: `npm run ocrMathdoku screenshot.png`

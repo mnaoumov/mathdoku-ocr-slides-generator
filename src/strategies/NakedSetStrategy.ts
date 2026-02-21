@@ -1,5 +1,6 @@
 import type { Puzzle } from '../Puzzle.ts';
 import type {
+  ChangeGroup,
   Strategy,
   StrategyResult
 } from './Strategy.ts';
@@ -23,38 +24,30 @@ export class NakedSetStrategy implements Strategy {
   }
 
   public tryApply(puzzle: Puzzle): null | StrategyResult {
-    const allEliminations = new Map<Cell, Set<number>>();
-    const foundSubsets: Cell[][] = [];
+    const changeGroups: ChangeGroup[] = [];
 
     for (const house of puzzle.houses) {
       const filtered = house.cells.filter((cell) => !cell.isSolved && cell.candidateCount > 0);
       if (filtered.length > this.subsetSize) {
-        this.scanHouseForNakedSet(filtered, allEliminations, foundSubsets);
+        this.scanHouseForNakedSet(filtered, changeGroups);
       }
     }
 
-    if (allEliminations.size === 0) {
+    if (changeGroups.length === 0) {
       return null;
     }
 
-    const changes = [...allEliminations.entries()]
-      .map(([cell, values]) => new CandidatesStrikethrough(cell, [...values].sort((a, b) => a - b)))
-      .sort((a, b) => Cell.compare(a.cell, b.cell));
-
     const name = NAKED_SET_NAMES[this.subsetSize] ?? `Naked set (${String(this.subsetSize)})`;
-    const subsetDescriptions = foundSubsets.map(
-      (subset) => `(${subset.map((c) => c.ref).join(' ')})`
-    );
+    const subsetDescriptions = changeGroups.map((g) => g.reason);
     return {
-      changes,
+      changeGroups,
       note: `${name}. ${subsetDescriptions.join(', ')}`
     };
   }
 
   private scanHouseForNakedSet(
     cells: readonly Cell[],
-    allEliminations: Map<Cell, Set<number>>,
-    foundSubsets: Cell[][]
+    changeGroups: ChangeGroup[]
   ): void {
     for (const subset of generateSubsets(cells, this.subsetSize)) {
       const union = new Set<number>();
@@ -69,27 +62,21 @@ export class NakedSetStrategy implements Strategy {
       }
 
       const subsetSet = new Set(subset);
-      let hasEliminations = false;
+      const changes: CandidatesStrikethrough[] = [];
       for (const cell of cells) {
         if (subsetSet.has(cell)) {
           continue;
         }
         const toEliminate = cell.getCandidates().filter((v) => union.has(v));
         if (toEliminate.length > 0) {
-          hasEliminations = true;
-          let existing = allEliminations.get(cell);
-          if (!existing) {
-            existing = new Set<number>();
-            allEliminations.set(cell, existing);
-          }
-          for (const v of toEliminate) {
-            existing.add(v);
-          }
+          changes.push(new CandidatesStrikethrough(cell, toEliminate));
         }
       }
 
-      if (hasEliminations) {
-        foundSubsets.push([...subset]);
+      if (changes.length > 0) {
+        const reason = `(${subset.map((c) => c.ref).join(' ')})`;
+        changes.sort((a, b) => Cell.compare(a.cell, b.cell));
+        changeGroups.push({ changes, reason });
       }
     }
   }

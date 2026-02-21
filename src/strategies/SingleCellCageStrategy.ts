@@ -1,11 +1,12 @@
 import type { CellValueSetter } from '../Puzzle.ts';
 import type { Puzzle } from '../Puzzle.ts';
 import type {
+  ChangeGroup,
   Strategy,
   StrategyResult
 } from './Strategy.ts';
 
-import { buildAutoEliminateChanges } from '../cageConstraints.ts';
+import { buildAutoEliminateGroup } from '../cageConstraints.ts';
 import { ensureNonNullable } from '../typeGuards.ts';
 
 export class SingleCellCageStrategy implements Strategy {
@@ -26,8 +27,10 @@ export class SingleCellCageStrategy implements Strategy {
       return null;
     }
 
-    const changes = buildAutoEliminateChanges(valueSetters);
+    const changeGroups: ChangeGroup[] = valueSetters.map(
+      (setter) => buildAutoEliminateGroup(setter, setter.cell.ref)
+    );
     const cellRefs = valueSetters.map((s) => s.cell.ref).join(', ');
-    return { changes, note: `Single cell. ${cellRefs}` };
+    return { changeGroups, note: `Single cell. ${cellRefs}` };
   }
 }

@@ -44,7 +44,8 @@ describe('NakedSetStrategy', () => {
     const strategy = new NakedSetStrategy(2);
     const result = strategy.tryApply(puzzle);
     expect(result).not.toBeNull();
-    const { changes, note } = ensureNonNullable(result);
+    const r = ensureNonNullable(result);
+    const changes = r.changeGroups.flatMap((g) => g.changes);
 
     const c1Changes = changes.filter(
       (c) => c instanceof CandidatesStrikethrough && c.cell.ref === 'C1'
@@ -53,7 +54,7 @@ describe('NakedSetStrategy', () => {
     const eliminatedValues = c1Changes.flatMap((c) => [...c.values]);
     expect(eliminatedValues).toContain(1);
     expect(eliminatedValues).toContain(2);
-    expect(note).toContain('Naked pair.');
+    expect(r.note).toContain('Naked pair.');
   });
 
   it('skips solved cells', () => {
@@ -76,7 +77,7 @@ describe('NakedSetStrategy', () => {
     const strategy = new NakedSetStrategy(2);
     const result = strategy.tryApply(puzzle);
     if (result) {
-      for (const change of result.changes) {
+      for (const change of result.changeGroups.flatMap((g) => g.changes)) {
         expect(change.cell.isSolved).toBe(false);
       }
     }

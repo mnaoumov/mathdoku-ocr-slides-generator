@@ -37,11 +37,12 @@ describe('HiddenSingleStrategy', () => {
 
     const result = strategy.tryApply(puzzle);
     expect(result).not.toBeNull();
-    const { changes, note } = ensureNonNullable(result);
+    const r = ensureNonNullable(result);
+    const changes = r.changeGroups.flatMap((g) => g.changes);
     const valueChanges = changes.filter((c) => c instanceof ValueChange);
     expect(valueChanges.some((c) => c.cell.ref === 'A1' && c.value === 1)).toBe(true);
-    expect(note).toContain('Hidden single.');
-    expect(note).toContain('A1');
+    expect(r.note).toContain('Hidden single.');
+    expect(r.note).toContain('A1');
   });
 
   it('skips solved cells', () => {

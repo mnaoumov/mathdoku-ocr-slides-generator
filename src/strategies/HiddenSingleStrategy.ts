@@ -5,11 +5,12 @@ import type {
   Puzzle
 } from '../Puzzle.ts';
 import type {
+  ChangeGroup,
   Strategy,
   StrategyResult
 } from './Strategy.ts';
 
-import { buildAutoEliminateChanges } from '../cageConstraints.ts';
+import { buildAutoEliminateGroup } from '../cageConstraints.ts';
 
 interface HiddenSingleFound {
   readonly cell: Cell;
@@ -30,12 +31,15 @@ export class HiddenSingleStrategy implements Strategy {
       return null;
     }
 
-    const valueSetters: CellValueSetter[] = results.map((r) => ({ cell: r.cell, value: r.value }));
+    const changeGroups: ChangeGroup[] = results.map((r) => {
+      const setter: CellValueSetter = { cell: r.cell, value: r.value };
+      return buildAutoEliminateGroup(setter, `${r.cell.ref}: ${r.house.type} ${r.house.label}`);
+    });
     const noteEntries = results.map(
       (r) => `${r.cell.ref}: ${r.house.type} ${r.house.label}`
     );
     return {
-      changes: buildAutoEliminateChanges(valueSetters),
+      changeGroups,
       note: `Hidden single. ${noteEntries.join(', ')}`
     };
   }

@@ -3,16 +3,17 @@ import type {
   Puzzle
 } from '../Puzzle.ts';
 import type {
+  ChangeGroup,
   Strategy,
   StrategyResult
 } from './Strategy.ts';
 
-import { buildAutoEliminateChanges } from '../cageConstraints.ts';
+import { buildAutoEliminateGroup } from '../cageConstraints.ts';
 import { ensureNonNullable } from '../typeGuards.ts';
 
 export class DeterminedByCageStrategy implements Strategy {
   public tryApply(puzzle: Puzzle): null | StrategyResult {
-    const valueSetters: { cell: Cell; value: number }[] = [];
+    const changeGroups: ChangeGroup[] = [];
     const affectedRefs: string[] = [];
 
     for (const cage of puzzle.cages) {
@@ -23,7 +24,7 @@ export class DeterminedByCageStrategy implements Strategy {
       if (cageValue === undefined || isNaN(cageValue)) {
         continue;
       }
-      if (cage.operator !== '+' && cage.operator !== 'x' && cage.operator !== '*') {
+      if (cage.operator !== '+' && cage.operator !== 'x') {
         continue;
       }
 
@@ -60,17 +61,17 @@ export class DeterminedByCageStrategy implements Strategy {
           continue;
         }
 
-        valueSetters.push({ cell: targetCell, value: targetValue });
+        changeGroups.push(buildAutoEliminateGroup({ cell: targetCell, value: targetValue }, targetCell.ref));
         affectedRefs.push(targetCell.ref);
       }
     }
 
-    if (valueSetters.length === 0) {
+    if (changeGroups.length === 0) {
       return null;
     }
 
     return {
-      changes: buildAutoEliminateChanges(valueSetters),
+      changeGroups,
       note: `Determined by cage. ${affectedRefs.join(', ')}`
     };
   }
@@ -97,7 +98,7 @@ export class DeterminedByCageStrategy implements Strategy {
   ): null | number {
     const uncovered = new Set(otherCells);
     const isMultiplication = otherCells.length > 0
-      && (ensureNonNullable(otherCells[0]).cage.operator === 'x' || ensureNonNullable(otherCells[0]).cage.operator === '*');
+      && ensureNonNullable(otherCells[0]).cage.operator === 'x';
     let aggregate = isMultiplication ? 1 : 0;
 
     for (const house of puzzle.houses) {

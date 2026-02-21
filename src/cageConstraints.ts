@@ -1,5 +1,5 @@
-import type { CellChange } from './cellChanges/CellChange.ts';
 import type { CellValueSetter } from './Puzzle.ts';
+import type { ChangeGroup } from './strategies/Strategy.ts';
 
 import { CandidatesChange } from './cellChanges/CandidatesChange.ts';
 import { CandidatesStrikethrough } from './cellChanges/CandidatesStrikethrough.ts';
@@ -25,57 +25,56 @@ export interface CageTupleOptions {
 }
 
 export function applyCageConstraint(
-  ctx: CageConstraintContext,
-  valueSetters: CellValueSetter[],
-  candidateChanges: CellChange[]
-): void {
+  ctx: CageConstraintContext
+): { candidateGroups: ChangeGroup[]; valueSetters: CellValueSetter[] } {
   const { cage, puzzleSize } = ctx;
   const cageValue = cage.value ?? (cage.label ? parseInt(cage.label, 10) : undefined);
   if (cageValue === undefined || isNaN(cageValue)) {
-    return;
+    return { candidateGroups: [], valueSetters: [] };
   }
 
   const tuples = collectCageTuples(cageValue, ctx);
   if (tuples.length === 0) {
-    return;
+    return { candidateGroups: [], valueSetters: [] };
   }
 
   if (tuples.length === 1) {
     const tuple = ensureNonNullable(tuples[0]);
+    const valueSetters: CellValueSetter[] = [];
     for (let i = 0; i < cage.cells.length; i++) {
       valueSetters.push({ cell: ensureNonNullable(cage.cells[i]), value: ensureNonNullable(tuple[i]) });
     }
-    return;
+    return { candidateGroups: [], valueSetters };
   }
 
   const distinctSets = new Set<string>(tuples.map(
     (t) => [...new Set(t)].sort((a, b) => a - b).join(',')
   ));
   if (distinctSets.size !== 1) {
-    return;
+    return { candidateGroups: [], valueSetters: [] };
   }
 
   const narrowedValues = ensureNonNullable([...distinctSets][0]).split(',').map(Number);
   if (narrowedValues.length >= puzzleSize) {
-    return;
+    return { candidateGroups: [], valueSetters: [] };
   }
 
-  for (const cell of cage.cells) {
-    candidateChanges.push(new CandidatesChange(cell, narrowedValues));
-  }
+  const candidateChanges = cage.cells.map((cell) => new CandidatesChange(cell, narrowedValues));
+  return {
+    candidateGroups: [{ changes: candidateChanges, reason: 'unique cage multiset' }],
+    valueSetters: []
+  };
 }
 
-export function buildAutoEliminateChanges(
-  cellValueSetters: readonly CellValueSetter[]
-): CellChange[] {
-  const changes: CellChange[] = [];
-  for (const setter of cellValueSetters) {
-    changes.push(new ValueChange(setter.cell, setter.value));
-    for (const peer of setter.cell.peers) {
-      changes.push(new CandidatesStrikethrough(peer, [setter.value]));
-    }
-  }
-  return changes;
+export function buildAutoEliminateGroup(
+  setter: CellValueSetter,
+  reason: string
+): ChangeGroup {
+  const changes = [
+    new ValueChange(setter.cell, setter.value),
+    ...setter.cell.peers.map((peer) => new CandidatesStrikethrough(peer, [setter.value]))
+  ];
+  return { changes, reason };
 }
 
 export function collectCageTuples(

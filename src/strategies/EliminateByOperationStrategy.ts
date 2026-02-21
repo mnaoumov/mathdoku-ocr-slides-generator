@@ -5,6 +5,7 @@ import type {
   Puzzle
 } from '../Puzzle.ts';
 import type {
+  ChangeGroup,
   Strategy,
   StrategyResult
 } from './Strategy.ts';
@@ -14,15 +15,12 @@ import { ensureNonNullable } from '../typeGuards.ts';
 
 const BINARY_CELL_COUNT = 2;
 
-interface EliminationEntry {
-  readonly cageRef: string;
-  readonly reasons: string[];
-}
+type EliminationReasonType = 'divide' | 'impossible' | 'tooBig' | 'tooSmall';
 
 export class EliminateByOperationStrategy implements Strategy {
   public tryApply(puzzle: Puzzle): null | StrategyResult {
-    const changes: CandidatesStrikethrough[] = [];
-    const entries: EliminationEntry[] = [];
+    const allGroups: ChangeGroup[] = [];
+    const cageNoteEntries: string[] = [];
 
     for (const cage of puzzle.cages) {
       if (cage.cells.length <= 1) {
@@ -33,92 +31,76 @@ export class EliminateByOperationStrategy implements Strategy {
         continue;
       }
 
-      const eliminatedValues = new Set<number>();
-
-      for (const cell of cage.cells) {
-        if (cell.isSolved) {
-          continue;
-        }
-        const validForCell = this.computeValidCandidatesForCell(
-          cell,
-          cage,
-          cageValue,
-          puzzle.hasOperators,
-          puzzle.puzzleSize
-        );
-        const toEliminate = cell.getCandidates().filter((v) => !validForCell.has(v));
-        if (toEliminate.length > 0) {
-          changes.push(new CandidatesStrikethrough(cell, toEliminate));
-          for (const v of toEliminate) {
-            eliminatedValues.add(v);
-          }
-        }
+      const cageGroups = this.buildCageGroups(cage, cageValue, puzzle.hasOperators, puzzle.puzzleSize);
+      if (cageGroups.length === 0) {
+        continue;
       }
 
-      if (eliminatedValues.size > 0) {
-        const reasons = this.buildGroupedReasons(eliminatedValues, cage, cageValue, puzzle.puzzleSize);
-        entries.push({ cageRef: `@${cage.topLeft.ref}`, reasons });
-      }
+      allGroups.push(...cageGroups);
+      const reasons = cageGroups.map((g) => g.reason).join(', ');
+      cageNoteEntries.push(`@${cage.topLeft.ref}: ${reasons}`);
     }
 
-    if (changes.length === 0) {
+    if (allGroups.length === 0) {
       return null;
     }
 
-    const note = `Cage operation. ${entries.map((e) => `${e.cageRef}: ${e.reasons.join(', ')}`).join(', ')}`;
-    return { changes, note };
+    return {
+      changeGroups: allGroups,
+      note: `Cage operation. ${cageNoteEntries.join(', ')}`
+    };
   }
 
-  private buildGroupedReasons(
-    eliminatedValues: Set<number>,
+  private buildCageGroups(
     cage: Cage,
     cageValue: number,
+    hasOperators: boolean,
     puzzleSize: number
-  ): string[] {
-    const sorted = [...eliminatedValues].sort((a, b) => a - b);
+  ): ChangeGroup[] {
+    const buckets = new Map<EliminationReasonType, Map<Cell, number[]>>();
 
-    if (cage.operator === 'x' || cage.operator === '*') {
-      const noDivide = sorted.filter((v) => cageValue % v !== 0);
-      const infeasible = sorted.filter((v) => cageValue % v === 0);
-      const reasons: string[] = [];
-      if (noDivide.length > 0) {
-        reasons.push(formatValueGroup(noDivide, 'divide', cageValue));
+    for (const cell of cage.cells) {
+      if (cell.isSolved) {
+        continue;
       }
-      if (infeasible.length > 0) {
-        reasons.push(formatValueGroup(infeasible, 'impossible'));
-      }
-      return reasons;
-    }
+      const validForCell = this.computeValidCandidatesForCell(cell, cage, cageValue, hasOperators, puzzleSize);
 
-    if (cage.operator === '+') {
-      const solvedSum = cage.cells
-        .filter((c) => c.isSolved)
-        .reduce((s, c) => s + ensureNonNullable(c.value), 0);
-      const otherUnsolvedCount = cage.cells.filter((c) => !c.isSolved).length - 1;
-      const naiveMaxOtherSum = otherUnsolvedCount * puzzleSize;
-
-      const tooBig: number[] = [];
-      const tooSmall: number[] = [];
-      for (const v of sorted) {
-        const remainder = cageValue - v - solvedSum;
-        if (remainder > naiveMaxOtherSum) {
-          tooSmall.push(v);
-        } else {
-          tooBig.push(v);
+      for (const v of cell.getCandidates()) {
+        if (validForCell.has(v)) {
+          continue;
         }
-      }
+        const reasonType = this.classifyElimination(v, cell, cage, cageValue, hasOperators, puzzleSize);
 
-      const reasons: string[] = [];
-      if (tooSmall.length > 0) {
-        reasons.push(formatValueGroup(tooSmall, 'tooSmall'));
+        let bucket = buckets.get(reasonType);
+        if (!bucket) {
+          bucket = new Map();
+          buckets.set(reasonType, bucket);
+        }
+        let cellValues = bucket.get(cell);
+        if (!cellValues) {
+          cellValues = [];
+          bucket.set(cell, cellValues);
+        }
+        cellValues.push(v);
       }
-      if (tooBig.length > 0) {
-        reasons.push(formatValueGroup(tooBig, 'tooBig'));
-      }
-      return reasons;
     }
 
-    return [formatValueGroup(sorted, 'impossible')];
+    const groups: ChangeGroup[] = [];
+    for (const [reasonType, cellMap] of buckets) {
+      const allValues = new Set<number>();
+      const changes: CandidatesStrikethrough[] = [];
+      for (const [cell, values] of cellMap) {
+        for (const v of values) {
+          allValues.add(v);
+        }
+        changes.push(new CandidatesStrikethrough(cell, values));
+      }
+      const sortedValues = [...allValues].sort((a, b) => a - b);
+      const reason = formatValueGroup(sortedValues, reasonType, cageValue);
+      groups.push({ changes, reason });
+    }
+
+    return groups;
   }
 
   private checkAdditionForCell(
@@ -174,6 +156,101 @@ export class EliminateByOperationStrategy implements Strategy {
     return value + cageValue <= puzzleSize || value - cageValue >= 1;
   }
 
+  private classifyAddition(
+    value: number,
+    cell: Cell,
+    otherCells: readonly Cell[],
+    cageValue: number,
+    solvedSum: number,
+    puzzleSize: number
+  ): EliminationReasonType {
+    const remainder = cageValue - value - solvedSum;
+
+    if (otherCells.length === 0) {
+      return remainder > 0 ? 'tooSmall' : 'tooBig';
+    }
+
+    const maxOther = computeLatinSquareBound(cell, otherCells, value, puzzleSize, 'sum', 'max');
+    if (remainder > maxOther) {
+      return 'tooSmall';
+    }
+
+    const minOther = computeLatinSquareBound(cell, otherCells, value, puzzleSize, 'sum', 'min');
+    if (remainder < minOther) {
+      return 'tooBig';
+    }
+
+    return 'impossible';
+  }
+
+  private classifyElimination(
+    value: number,
+    cell: Cell,
+    cage: Cage,
+    cageValue: number,
+    hasOperators: boolean,
+    puzzleSize: number
+  ): EliminationReasonType {
+    if (!hasOperators || !cage.operator) {
+      return 'impossible';
+    }
+
+    const otherCells = cage.cells.filter((c) => c !== cell && !c.isSolved);
+    const solvedValues = cage.cells.filter((c) => c.isSolved).map((c) => ensureNonNullable(c.value));
+
+    switch (cage.operator) {
+      case '+':
+        return this.classifyAddition(value, cell, otherCells, cageValue, solvedValues.reduce((s, v) => s + v, 0), puzzleSize);
+      case 'x':
+        return this.classifyMultiplication(value, cell, otherCells, cageValue, solvedValues, puzzleSize, cage.cells.length);
+      default:
+        return 'impossible';
+    }
+  }
+
+  private classifyMultiplication(
+    value: number,
+    cell: Cell,
+    otherCells: readonly Cell[],
+    cageValue: number,
+    solvedValues: readonly number[],
+    puzzleSize: number,
+    cellCount: number
+  ): EliminationReasonType {
+    if (cageValue % value !== 0) {
+      return 'divide';
+    }
+
+    const solvedProduct = solvedValues.reduce((p, v) => p * v, 1);
+    const totalProduct = value * solvedProduct;
+
+    if (cageValue % totalProduct !== 0) {
+      return 'impossible';
+    }
+
+    const quotient = cageValue / totalProduct;
+
+    if (otherCells.length === 0) {
+      return 'tooSmall';
+    }
+
+    if (cellCount === BINARY_CELL_COUNT) {
+      return quotient > puzzleSize ? 'tooSmall' : 'impossible';
+    }
+
+    const maxOther = computeLatinSquareBound(cell, otherCells, value, puzzleSize, 'product', 'max');
+    if (quotient > maxOther) {
+      return 'tooSmall';
+    }
+
+    const minOther = computeLatinSquareBound(cell, otherCells, value, puzzleSize, 'product', 'min');
+    if (quotient < minOther) {
+      return 'tooBig';
+    }
+
+    return 'impossible';
+  }
+
   private computeValidCandidatesForCell(
     cell: Cell,
     cage: Cage,
@@ -224,13 +301,12 @@ export class EliminateByOperationStrategy implements Strategy {
     switch (operator) {
       case '-':
         return cellCount === BINARY_CELL_COUNT && this.checkSubtraction(value, cageValue, puzzleSize);
-      case '*':
-      case 'x':
-        return this.checkMultiplicationForCell(value, cell, otherCells, cageValue, solvedProduct, puzzleSize, cellCount);
       case '/':
         return cellCount === BINARY_CELL_COUNT && this.checkDivision(value, cageValue, puzzleSize);
       case '+':
         return this.checkAdditionForCell(value, cell, otherCells, cageValue, solvedSum, puzzleSize);
+      case 'x':
+        return this.checkMultiplicationForCell(value, cell, otherCells, cageValue, solvedProduct, puzzleSize, cellCount);
       default:
         return true;
     }
@@ -281,8 +357,8 @@ function computeLatinSquareBound(
 
 function formatValueGroup(
   values: readonly number[],
-  reasonType: 'divide' | 'impossible' | 'tooBig' | 'tooSmall',
-  cageValue?: number
+  reasonType: EliminationReasonType,
+  cageValue: number
 ): string {
   const valueStr = values.length === 1
     ? String(ensureNonNullable(values[0]))

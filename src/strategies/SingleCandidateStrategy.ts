@@ -3,11 +3,12 @@ import type {
   Puzzle
 } from '../Puzzle.ts';
 import type {
+  ChangeGroup,
   Strategy,
   StrategyResult
 } from './Strategy.ts';
 
-import { buildAutoEliminateChanges } from '../cageConstraints.ts';
+import { buildAutoEliminateGroup } from '../cageConstraints.ts';
 import { ensureNonNullable } from '../typeGuards.ts';
 
 export class SingleCandidateStrategy implements Strategy {
@@ -25,10 +26,10 @@ export class SingleCandidateStrategy implements Strategy {
     if (results.length === 0) {
       return null;
     }
+    const changeGroups: ChangeGroup[] = results.map(
+      (setter) => buildAutoEliminateGroup(setter, setter.cell.ref)
+    );
     const cellRefs = results.map((r) => r.cell.ref).join(', ');
-    return {
-      changes: buildAutoEliminateChanges(results),
-      note: `Single candidate. ${cellRefs}`
-    };
+    return { changeGroups, note: `Single candidate. ${cellRefs}` };
   }
 }

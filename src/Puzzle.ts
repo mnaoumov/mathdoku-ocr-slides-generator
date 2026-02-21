@@ -83,6 +83,8 @@ interface EnterCommand {
 const CHAR_CODE_A = 65;
 
 export class Cage {
+  public readonly operator: string | undefined;
+
   public get topLeft(): Cell {
     return ensureNonNullable(this.cells[0]);
   }
@@ -91,9 +93,10 @@ export class Cage {
     public readonly id: number,
     public readonly cells: readonly Cell[],
     public readonly label: string | undefined,
-    public readonly operator: string | undefined,
+    operator: string | undefined,
     public readonly value: number | undefined
   ) {
+    this.operator = operator === '*' ? 'x' : operator;
   }
 
   public contains(cell: Cell): boolean {
@@ -378,7 +381,7 @@ export class Puzzle {
         const result = strategy.tryApply(this);
         if (result) {
           this.renderer.setNoteText(result.note);
-          this.applyChanges(result.changes);
+          this.applyChanges(result.changeGroups.flatMap((g) => g.changes));
           this.commit();
           applied = true;
           canApply = true;
@@ -600,7 +603,7 @@ export function initPuzzleSlides(options: InitPuzzleSlidesOptions): Puzzle {
     const result = strategy.tryApply(puzzle);
     if (result) {
       options.renderer.setNoteText(result.note);
-      puzzle.applyChanges(result.changes);
+      puzzle.applyChanges(result.changeGroups.flatMap((g) => g.changes));
       puzzle.commit();
     }
   }
