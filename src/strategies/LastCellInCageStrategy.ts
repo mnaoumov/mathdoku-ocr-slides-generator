@@ -23,10 +23,7 @@ export class LastCellInCageStrategy implements Strategy {
       if (cage.cells.length <= 1) {
         continue;
       }
-      const cageValue = cage.value ?? (cage.label ? parseInt(cage.label, 10) : undefined);
-      if (cageValue === undefined || isNaN(cageValue)) {
-        continue;
-      }
+      const cageValue = cage.value;
 
       const unsolvedCells = cage.cells.filter((c) => !c.isSolved);
       if (unsolvedCells.length !== 1) {

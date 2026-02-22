@@ -84,6 +84,7 @@ const CHAR_CODE_A = 65;
 
 export class Cage {
   public readonly operator: string | undefined;
+  public readonly value: number;
 
   public get topLeft(): Cell {
     return ensureNonNullable(this.cells[0]);
@@ -94,9 +95,10 @@ export class Cage {
     public readonly cells: readonly Cell[],
     public readonly label: string | undefined,
     operator: string | undefined,
-    public readonly value: number | undefined
+    value: number
   ) {
     this.operator = operator === '*' ? 'x' : operator;
+    this.value = value;
   }
 
   public contains(cell: Cell): boolean {
@@ -302,7 +304,8 @@ export class Puzzle {
         return ensureNonNullable(ensureNonNullable(grid[parsed.rowId - 1])[parsed.columnId - 1]);
       });
       cageCells.sort((a, b) => a.row.id - b.row.id || a.column.id - b.column.id);
-      cages.push(new Cage(cageId, cageCells, raw.label, raw.operator, raw.value));
+      const cageValue = raw.value ?? this.parseLabelValue(raw.label, cageId);
+      cages.push(new Cage(cageId, cageCells, raw.label, raw.operator, cageValue));
     }
     this.cages = cages;
 
@@ -538,12 +541,19 @@ export class Puzzle {
     return commands;
   }
 
+  private parseLabelValue(label: string | undefined, cageId: number): number {
+    if (label === undefined) {
+      throw new Error(`Cage ${String(cageId)} has no value and no label`);
+    }
+    const parsed = parseInt(label, 10);
+    if (isNaN(parsed)) {
+      throw new Error(`Cage ${String(cageId)} label "${label}" does not contain a numeric value`);
+    }
+    return parsed;
+  }
+
   private validateCageAfterValue(cell: Cell, value: number): void {
     const cage = cell.cage;
-    const cageValue = cage.value ?? (cage.label ? parseInt(cage.label, 10) : undefined);
-    if (cageValue === undefined || isNaN(cageValue)) {
-      return;
-    }
     // Only validate when all cells in the cage would be solved
     const allSolved = cage.cells.every((c) => c === cell ? true : c.isSolved);
     if (!allSolved) {
@@ -551,12 +561,12 @@ export class Puzzle {
     }
     const tuple = cage.cells.map((c) => c === cell ? value : ensureNonNullable(c.value));
     if (this.hasOperators && cage.operator) {
-      if (evaluateTuple(tuple, cage.operator) !== cageValue) {
+      if (evaluateTuple(tuple, cage.operator) !== cage.value) {
         throw new Error(`${cell.ref} = ${String(value)} makes cage @${cage.topLeft.ref} invalid`);
       }
     } else {
       // Unknown operator: error only if NO operator works
-      const validForAny = ['+', '-', 'x', '/'].some((op) => evaluateTuple(tuple, op) === cageValue);
+      const validForAny = ['+', '-', 'x', '/'].some((op) => evaluateTuple(tuple, op) === cage.value);
       if (!validForAny) {
         throw new Error(`${cell.ref} = ${String(value)} makes cage @${cage.topLeft.ref} invalid`);
       }

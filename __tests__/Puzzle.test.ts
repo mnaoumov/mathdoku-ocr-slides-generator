@@ -416,8 +416,8 @@ describe('initPuzzleSlides notes', () => {
 
   it('produces 3 slides when only FillAllCandidates fires', () => {
     const cages = [
-      { cells: ['A1', 'B1'] },
-      { cells: ['A2', 'B2'] }
+      { cells: ['A1', 'B1'], value: 3 },
+      { cells: ['A2', 'B2'], value: 3 }
     ];
     const renderer = new TrackingRenderer();
     initPuzzleSlides({

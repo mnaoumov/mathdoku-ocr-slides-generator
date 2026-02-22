@@ -553,7 +553,7 @@ function drawCageLabels(ctx: GridRenderContext, cages: readonly CageRaw[], hasOp
     const topLeftCellRef = topLeftCell.ref;
 
     let label = cage.label ?? '';
-    if (!label && cage.value !== undefined) {
+    if (!label) {
       label = hasOperators && cage.cells.length > 1 && cage.operator
         ? String(cage.value) + opSymbol(cage.operator)
         : String(cage.value);

@@ -36,10 +36,7 @@ export abstract class CageOperationStrategy implements Strategy {
         continue;
       }
 
-      const cageValue = cage.value ?? (cage.label ? parseInt(cage.label, 10) : undefined);
-      if (cageValue === undefined || isNaN(cageValue)) {
-        continue;
-      }
+      const cageValue = cage.value;
 
       const effectiveOperator = puzzle.hasOperators && cage.operator
         ? cage.operator

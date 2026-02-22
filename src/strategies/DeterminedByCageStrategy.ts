@@ -20,10 +20,7 @@ export class DeterminedByCageStrategy implements Strategy {
       if (cage.cells.length <= 1) {
         continue;
       }
-      const cageValue = cage.value ?? (cage.label ? parseInt(cage.label, 10) : undefined);
-      if (cageValue === undefined || isNaN(cageValue)) {
-        continue;
-      }
+      const cageValue = cage.value;
       if (cage.operator !== '+' && cage.operator !== 'x') {
         continue;
       }

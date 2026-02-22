@@ -16,11 +16,7 @@ export class SingleCellCageStrategy implements Strategy {
       if (cage.cells.length !== 1) {
         continue;
       }
-      const cellValue = cage.value ?? (cage.label ? parseInt(cage.label, 10) : undefined);
-      if (cellValue === undefined || isNaN(cellValue)) {
-        continue;
-      }
-      valueSetters.push({ cell: ensureNonNullable(cage.cells[0]), value: cellValue });
+      valueSetters.push({ cell: ensureNonNullable(cage.cells[0]), value: cage.value });
     }
 
     if (valueSetters.length === 0) {

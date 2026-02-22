@@ -28,10 +28,7 @@ export function applyCageConstraint(
   ctx: CageConstraintContext
 ): { candidateGroups: ChangeGroup[]; valueSetters: CellValueSetter[] } {
   const { cage, puzzleSize } = ctx;
-  const cageValue = cage.value ?? (cage.label ? parseInt(cage.label, 10) : undefined);
-  if (cageValue === undefined || isNaN(cageValue)) {
-    return { candidateGroups: [], valueSetters: [] };
-  }
+  const cageValue = cage.value;
 
   const tuples = collectCageTuples(cageValue, ctx);
   if (tuples.length === 0) {
