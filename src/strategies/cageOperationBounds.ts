@@ -5,6 +5,29 @@ import type {
 
 export const BINARY_CELL_COUNT = 2;
 
+export function canBeOperator(
+  operator: string,
+  cageValue: number,
+  cellCount: number,
+  puzzleSize: number
+): boolean {
+  switch (operator) {
+    case '-':
+      return cellCount === BINARY_CELL_COUNT && cageValue >= 1 && cageValue < puzzleSize;
+    case '/':
+      return cellCount === BINARY_CELL_COUNT && cageValue >= BINARY_CELL_COUNT && cageValue <= puzzleSize;
+    case '+': {
+      const minSum = cellCount * (cellCount + 1) / BINARY_CELL_COUNT;
+      const maxSum = cellCount * puzzleSize - cellCount * (cellCount - 1) / BINARY_CELL_COUNT;
+      return cageValue >= minSum && cageValue <= maxSum;
+    }
+    case 'x':
+      return canBeMultiplication(cageValue, cellCount, puzzleSize);
+    default:
+      return false;
+  }
+}
+
 export function computeLatinSquareBound(
   targetCell: Cell,
   otherCells: readonly Cell[],
@@ -45,29 +68,6 @@ function canBeMultiplication(
     return hasFactorPairInRange(cageValue, puzzleSize);
   }
   return true;
-}
-
-function canBeOperator(
-  operator: string,
-  cageValue: number,
-  cellCount: number,
-  puzzleSize: number
-): boolean {
-  switch (operator) {
-    case '-':
-      return cellCount === BINARY_CELL_COUNT && cageValue >= 1 && cageValue < puzzleSize;
-    case '/':
-      return cellCount === BINARY_CELL_COUNT && cageValue >= BINARY_CELL_COUNT && cageValue <= puzzleSize;
-    case '+': {
-      const minSum = cellCount * (cellCount + 1) / BINARY_CELL_COUNT;
-      const maxSum = cellCount * puzzleSize - cellCount * (cellCount - 1) / BINARY_CELL_COUNT;
-      return cageValue >= minSum && cageValue <= maxSum;
-    }
-    case 'x':
-      return canBeMultiplication(cageValue, cellCount, puzzleSize);
-    default:
-      return false;
-  }
 }
 
 function computeHouseBound(

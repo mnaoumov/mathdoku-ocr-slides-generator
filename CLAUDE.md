@@ -25,7 +25,7 @@ Generate Google Slides presentations for Mathdoku puzzles that can be solved int
 - `assets/template-960x540.pptx` - Blank PPTX with 960×540 pt page size (workaround for API bug)
 - `src/Puzzle.ts` - Business logic: Puzzle class, PuzzleRenderer/Strategy interfaces, `initPuzzleSlides()`, types (zero Google Slides dependencies)
 - `src/View.ts` - Google Slides layer: SlidesRenderer class, layout profiles, grid rendering, importPuzzle, global entry points
-- `src/strategies/` - Strategy implementations: cage operation strategies (TooSmallInSum, TooBigInSum, DoesNotDivideProduct, TooSmallInProduct, TooBigInProduct), solving strategies (SingleCandidate, HiddenSingle, NakedSet, LastCellInCage, DeterminedByCage), init strategies (FillAllCandidates, SingleCellCage, UniqueCageMultiset)
+- `src/strategies/` - Strategy implementations: cage operation strategies (TooSmallInSum, TooBigInSum, DoesNotDivideProduct, TooSmallInProduct, TooBigInProduct), solving strategies (SingleCandidate, HiddenSingle, NakedSet, LastCellInCage, DeterminedByCage, NoCageCombination), init strategies (FillAllCandidates, SingleCellCage, UniqueCageMultiset)
 - `src/cellChanges/` - CellChange subclasses (CandidatesChange, CandidatesStrikethrough, CellClearance, ValueChange)
 - `dist/EnterDialog.html` - Modal dialog UI for Enter command
 - `ocr/ocr_mathdoku.py` - OCR: uses OpenCV + Tesseract to extract puzzle from screenshot
