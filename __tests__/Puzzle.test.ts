@@ -277,6 +277,13 @@ describe('tryApplyOneStrategyStep', () => {
     expect(result.applied).toBe(false);
     expect(result.message).toBeUndefined();
     expect(result.slideNumber).toBe(1);
+    expect(result.skipped).toEqual([
+      'Single candidate',
+      'Hidden single',
+      'Last cell in cage',
+      'Determined by cage',
+      'No cage combination'
+    ]);
   });
 
   it('applies first matching strategy and returns message', () => {
@@ -290,6 +297,7 @@ describe('tryApplyOneStrategyStep', () => {
     expect(result.applied).toBe(true);
     expect(result.message).toContain('Single candidate');
     expect(result.slideNumber).toBe(3);
+    expect(result.skipped).toEqual([]);
     expect(puzzle.getCell('A1').value).toBe(1);
   });
 

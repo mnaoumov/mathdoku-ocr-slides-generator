@@ -169,13 +169,16 @@ export function applyOneStep(): StepResult {
   if (initialIndex >= 0) {
     const initialStrategies = createInitialStrategies();
     const puzzle = buildPuzzleFromCache(cache);
+    const skipped: string[] = [];
     for (let i = initialIndex; i < initialStrategies.length; i++) {
-      const result = puzzle.tryApplyOneStrategyStep([ensureNonNullable(initialStrategies[i])]);
+      const strategy = ensureNonNullable(initialStrategies[i]);
+      const result = puzzle.tryApplyOneStrategyStep([strategy]);
       if (result.applied) {
         cache?.put(INITIAL_STRATEGY_INDEX_CACHE_KEY, String(i + 1), CACHE_EXPIRATION_SECONDS);
         saveCellState(cache, puzzle);
-        return result;
+        return { ...result, skipped };
       }
+      skipped.push(strategy.name);
     }
     cache?.remove(INITIAL_STRATEGY_INDEX_CACHE_KEY);
     const result = puzzle.tryApplyOneStrategyStep(createStrategies(puzzle.puzzleSize));
@@ -185,7 +188,7 @@ export function applyOneStep(): StepResult {
       cache?.remove(CELL_STATE_CACHE_KEY);
       clearSlideNotes(getLastSlide());
     }
-    return result;
+    return { ...result, skipped: [...skipped, ...result.skipped] };
   }
 
   const puzzle = buildPuzzleFromCache(cache);

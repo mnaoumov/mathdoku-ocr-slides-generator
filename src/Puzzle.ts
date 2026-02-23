@@ -87,6 +87,7 @@ export interface PuzzleState {
 export interface StepResult {
   readonly applied: boolean;
   readonly message?: string;
+  readonly skipped: readonly string[];
   readonly slideNumber: number;
 }
 
@@ -409,6 +410,7 @@ export class Puzzle {
   }
 
   public tryApplyOneStrategyStep(strategies: readonly Strategy[]): StepResult {
+    const skipped: string[] = [];
     for (const strategy of strategies) {
       const result = strategy.tryApply(this);
       if (result) {
@@ -416,10 +418,11 @@ export class Puzzle {
         this.renderer.setNoteText(message);
         this.applyChanges(result.changeGroups.flatMap((g) => g.changes));
         this.commit();
-        return { applied: true, message, slideNumber: this.renderer.slideCount };
+        return { applied: true, message, skipped, slideNumber: this.renderer.slideCount };
       }
+      skipped.push(strategy.name);
     }
-    return { applied: false, slideNumber: this.renderer.slideCount };
+    return { applied: false, skipped, slideNumber: this.renderer.slideCount };
   }
 
   private buildEnterChanges(input: string): CellChange[] {
