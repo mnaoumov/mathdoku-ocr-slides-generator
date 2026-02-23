@@ -73,6 +73,7 @@ Every action records its description in slide speaker notes for an audit trail:
 - **Enter**: the full input string (including `//` comments) is recorded
 - **Automated strategies**: "Applying automated strategies" on each step
 - Each action produces 2 slides (pending + committed), both get the note
+- **Invariant**: at any point in time, only the very last slide has no note text. Notes are set on the SOURCE slide during `makeNextSlide` (the current slide before duplication); the new (duplicated) slide's notes are cleared. When no more strategies fire, `applyOneStep` clears notes on the last slide.
 
 Note text is set via `PuzzleRenderer.setNoteText()` from business logic (`Puzzle.enter()`, `Puzzle.tryApplyAutomatedStrategies()`, `initPuzzleSlides()`), not from View callers.
 
@@ -82,7 +83,7 @@ Init and Apply Automated Strategies use a modal progress dialog (`dist/ProgressD
 
 **Server functions** (exported from `View.ts`):
 - `initGridSetup(puzzleJsonStr)` — creates grid layout, saves mathdokuState (everything `importPuzzle` does except strategy application)
-- `applyOneStep()` — rebuilds puzzle from slide, tries one strategy, returns `StepResult { applied, message? }`. Tracks initial strategy index in cache so each initial strategy is tried exactly once; after exhausting them, switches to automated strategies.
+- `applyOneStep()` — rebuilds puzzle from cached cell state (falls back to slide if cache miss), tries one strategy, returns `StepResult { applied, message? }`. Tracks initial strategy index in cache so each initial strategy is tried exactly once; after exhausting them, switches to automated strategies. When no strategy fires, clears notes on the last slide.
 - `getRevertState()` — returns `{ slideCount, lastSlideNotes }` for revert baseline
 - `revertOperation(targetSlideCount, savedNotes)` — deletes slides after target count, restores notes
 - `finishInit()` — updates menu and selects last slide after init completes
@@ -91,6 +92,8 @@ Init and Apply Automated Strategies use a modal progress dialog (`dist/ProgressD
 **`tryApplyOneStrategyStep(strategies)`** on Puzzle class: iterates provided strategies, applies first match, returns `StepResult`. Used by `applyOneStep()` for single-step execution.
 
 **Initial vs automated strategies:** `applyOneStep()` handles both phases internally. It uses `CacheService` to track which initial strategy to try next (set by `initGridSetup`). Each initial strategy is tried exactly once in order; those that don't fire are skipped. Once all initial strategies are exhausted, automated strategies take over. The dialog just calls `applyOneStep()` in a loop — no mode parameter needed.
+
+**Cell state caching:** `applyOneStep()` uses `CacheService` to cache cell values and candidates between calls (`CELL_STATE_CACHE_KEY`). After each successful strategy step, the updated cell state is saved to cache via `saveCellState()`. On cache miss, falls back to `buildPuzzleFromSlide()` (slower, reads shapes from the slide). `initGridSetup()` seeds the cache with empty state; `submitEnterCommand()` saves state after enter+commit; `revertOperation()` clears the cache.
 
 **Flows:**
 - **Init**: validates puzzle data → stores JSON in CacheService → opens ProgressDialog → dialog calls `initGridSetup()` → loops `applyOneStep()` → calls `finishInit()`

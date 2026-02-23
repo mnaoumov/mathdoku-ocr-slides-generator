@@ -75,6 +75,7 @@ export interface PuzzleRenderer {
   renderPendingStrikethrough(change: CandidatesStrikethrough): void;
   renderPendingValue(change: ValueChange): void;
   setNoteText(text: string): void;
+  readonly slideCount: number;
 }
 
 export interface PuzzleState {
@@ -86,6 +87,7 @@ export interface PuzzleState {
 export interface StepResult {
   readonly applied: boolean;
   readonly message?: string;
+  readonly slideNumber: number;
 }
 
 interface EnterCommand {
@@ -414,10 +416,10 @@ export class Puzzle {
         this.renderer.setNoteText(message);
         this.applyChanges(result.changeGroups.flatMap((g) => g.changes));
         this.commit();
-        return { applied: true, message };
+        return { applied: true, message, slideNumber: this.renderer.slideCount };
       }
     }
-    return { applied: false };
+    return { applied: false, slideNumber: this.renderer.slideCount };
   }
 
   private buildEnterChanges(input: string): CellChange[] {

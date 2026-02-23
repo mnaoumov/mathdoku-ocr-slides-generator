@@ -291,9 +291,18 @@ async function getCredentials(): Promise<OAuth2Client> {
         && tokenInfo.expiry_date !== null
         && tokenInfo.expiry_date < Date.now();
       if (isExpired) {
-        const { credentials } = await oauth2Client.refreshAccessToken();
-        oauth2Client.setCredentials(credentials);
-        saveToken(oauth2Client);
+        try {
+          const { credentials } = await oauth2Client.refreshAccessToken();
+          oauth2Client.setCredentials(credentials);
+          saveToken(oauth2Client);
+        } catch {
+          console.error(
+            'Error: OAuth refresh token has expired or been revoked.\n'
+              + '\n'
+              + `  Delete ${TOKEN_FILE} and re-run to re-authenticate.`
+          );
+          process.exit(1);
+        }
       }
       return oauth2Client;
     }
@@ -305,9 +314,19 @@ async function getCredentials(): Promise<OAuth2Client> {
 
 function handleHttpError(e: GaxiosError): never {
   const status = e.response?.status ?? 0;
-  const errors = (e.response?.data as { error?: { details?: Record<string, unknown>[] } } | undefined)?.error?.details;
+  const data = e.response?.data as Record<string, unknown> | undefined;
+  const errors = (data as { error?: { details?: Record<string, unknown>[] } } | undefined)?.error?.details;
   const detail = errors?.[0];
   const reason = typeof detail?.['reason'] === 'string' ? detail['reason'] : '';
+
+  if (data?.['error'] === 'invalid_grant') {
+    console.error(
+      'Error: OAuth refresh token has expired or been revoked.\n'
+        + '\n'
+        + `  Delete ${TOKEN_FILE} and re-run to re-authenticate.`
+    );
+    process.exit(1);
+  }
 
   if (reason === 'SERVICE_DISABLED') {
     const metadata = detail?.['metadata'] as Record<string, string> | undefined;

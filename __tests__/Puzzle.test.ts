@@ -276,6 +276,7 @@ describe('tryApplyOneStrategyStep', () => {
     const result = puzzle.tryApplyOneStrategyStep(createStrategies(2));
     expect(result.applied).toBe(false);
     expect(result.message).toBeUndefined();
+    expect(result.slideNumber).toBe(1);
   });
 
   it('applies first matching strategy and returns message', () => {
@@ -288,6 +289,7 @@ describe('tryApplyOneStrategyStep', () => {
     const result = puzzle.tryApplyOneStrategyStep(createStrategies(2));
     expect(result.applied).toBe(true);
     expect(result.message).toContain('Single candidate');
+    expect(result.slideNumber).toBe(3);
     expect(puzzle.getCell('A1').value).toBe(1);
   });
 
@@ -302,12 +304,11 @@ describe('tryApplyOneStrategyStep', () => {
     const strategies = createStrategies(2);
     const result1 = puzzle.tryApplyOneStrategyStep(strategies);
     expect(result1.applied).toBe(true);
-    // Only 2 slides created (pending + committed) for one step
-    expect(renderer.slideCount).toBe(3);
+    expect(result1.slideNumber).toBe(3);
 
     const result2 = puzzle.tryApplyOneStrategyStep(strategies);
     expect(result2.applied).toBe(true);
-    expect(renderer.slideCount).toBe(5);
+    expect(result2.slideNumber).toBe(5);
   });
 
   it('records note text for the step', () => {

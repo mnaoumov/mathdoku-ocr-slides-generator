@@ -117,7 +117,8 @@
           if (result.applied) {
             stepCount++;
             finishActiveEntry();
-            addLogEntry(result.message || ("Step " + stepCount), "active");
+            var startSlide = result.slideNumber - 1;
+            addLogEntry("Slide " + startSlide + "-" + result.slideNumber + ": " + (result.message || ("Step " + stepCount)), "active");
             runChunks();
           } else {
             showDone();
@@ -131,7 +132,6 @@
       google.script.run
         .withSuccessHandler(function(state) {
           revertState = state;
-          addLogEntry("Applying strategies...", "active");
           runChunks();
         })
         .withFailureHandler(onError)
@@ -141,7 +141,10 @@
     function doGridSetup(puzzleJson) {
       addLogEntry("Creating puzzle grid...", "active");
       google.script.run
-        .withSuccessHandler(function() {
+        .withSuccessHandler(function(slideNumber) {
+          if (activeEntry) {
+            activeEntry.textContent = "Slide " + slideNumber + ": Creating puzzle grid...";
+          }
           finishActiveEntry();
           startChunks();
         })

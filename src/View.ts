@@ -28,6 +28,11 @@ import {
 } from './strategies/createDefaultStrategies.ts';
 import { ensureNonNullable } from './typeGuards.ts';
 
+interface CachedCellState {
+  readonly candidates: Record<string, readonly number[]>;
+  readonly values: Record<string, number>;
+}
+
 interface CageProfile {
   readonly boxHeightFraction: number;
   readonly boxWidthFraction: number;
@@ -90,13 +95,17 @@ interface ValueProfile {
 }
 
 class SlidesRenderer implements PuzzleRenderer {
+  public get slideCount(): number {
+    return SlidesApp.getActivePresentation().getSlides().length;
+  }
+
   private currentPuzzleSize = 0;
   private currentSlide: GoogleAppsScript.Slides.Slide | null = null;
   private noteText = '';
 
   public beginPendingRender(puzzleSize: number): void {
     makeNextSlide(puzzleSize, this.noteText);
-    this.currentSlide = getCurrentSlide();
+    this.currentSlide = getLastSlide();
     this.currentPuzzleSize = puzzleSize;
   }
 
@@ -174,6 +183,7 @@ export function applyOneStep(): StepResult {
       saveCellState(cache, puzzle);
     } else {
       cache?.remove(CELL_STATE_CACHE_KEY);
+      clearSlideNotes(getLastSlide());
     }
     return result;
   }
@@ -184,6 +194,7 @@ export function applyOneStep(): StepResult {
     saveCellState(cache, puzzle);
   } else {
     cache?.remove(CELL_STATE_CACHE_KEY);
+    clearSlideNotes(getLastSlide());
   }
   return result;
 }
@@ -280,12 +291,13 @@ export function init(): void {
   }
 }
 
-export function initGridSetup(puzzleJsonStr: string): void {
+export function initGridSetup(puzzleJsonStr: string): number {
   const puzzleJson = parsePuzzleJson(JSON.parse(puzzleJsonStr) as unknown);
   importPuzzleGrid(puzzleJson);
   const cache = CacheService.getDocumentCache();
   cache?.put(INITIAL_STRATEGY_INDEX_CACHE_KEY, '0', CACHE_EXPIRATION_SECONDS);
   cache?.put(CELL_STATE_CACHE_KEY, JSON.stringify({ candidates: {}, values: {} }), CACHE_EXPIRATION_SECONDS);
+  return SlidesApp.getActivePresentation().getSlides().length;
 }
 
 export function needsGridSetup(): boolean {
@@ -313,14 +325,17 @@ export function revertOperation(targetSlideCount: number, savedNotes: string): v
     setSlideNotes(lastSlide, savedNotes);
     lastSlide.selectAsCurrentPage();
   }
-  CacheService.getDocumentCache()?.remove(CELL_STATE_CACHE_KEY);
+  const cache = CacheService.getDocumentCache();
+  cache?.remove(CELL_STATE_CACHE_KEY);
+  cache?.remove(INITIAL_STRATEGY_INDEX_CACHE_KEY);
 }
 
 export function submitEnterCommand(input: string): void {
   const puzzle = buildPuzzleFromSlide();
   puzzle.enter(input);
   puzzle.commit();
-  saveCellState(CacheService.getDocumentCache(), puzzle);
+  const cache = CacheService.getDocumentCache();
+  saveCellState(cache, puzzle);
   openProgressDialog('Applying strategies', false);
 }
 
@@ -402,34 +417,37 @@ function applyPendingValue(
 }
 
 function buildPuzzleFromCache(cache: GoogleAppsScript.Cache.Cache | null): Puzzle {
-  const cachedState = cache?.get(CELL_STATE_CACHE_KEY);
-  if (cachedState) {
-    const state = getPuzzleState();
-    const snapshot = JSON.parse(cachedState) as { candidates: Record<string, number[]>; values: Record<string, number> };
-    const initialValues = new Map<string, number>();
-    const initialCandidates = new Map<string, Set<number>>();
-    for (const [ref, value] of Object.entries(snapshot.values)) {
-      initialValues.set(ref, value);
-    }
-    for (const [ref, cands] of Object.entries(snapshot.candidates)) {
-      initialCandidates.set(ref, new Set(cands));
-    }
-    return new Puzzle({
-      cages: state.cages,
-      hasOperators: state.hasOperators,
-      initialCandidates,
-      initialValues,
-      puzzleSize: state.puzzleSize,
-      renderer: new SlidesRenderer(),
-      strategies: createStrategies(state.puzzleSize)
-    });
+  const cached = cache?.get(CELL_STATE_CACHE_KEY);
+  if (!cached) {
+    return buildPuzzleFromSlide();
   }
-  return buildPuzzleFromSlide();
+
+  const state = getPuzzleState();
+  const cellState = JSON.parse(cached) as CachedCellState;
+  const values = new Map<string, number>();
+  const candidates = new Map<string, Set<number>>();
+
+  for (const [ref, cellValue] of Object.entries(cellState.values)) {
+    values.set(ref, cellValue);
+  }
+  for (const [ref, cands] of Object.entries(cellState.candidates)) {
+    candidates.set(ref, new Set(cands));
+  }
+
+  return new Puzzle({
+    cages: state.cages,
+    hasOperators: state.hasOperators,
+    initialCandidates: candidates,
+    initialValues: values,
+    puzzleSize: state.puzzleSize,
+    renderer: new SlidesRenderer(),
+    strategies: createStrategies(state.puzzleSize)
+  });
 }
 
 function buildPuzzleFromSlide(): Puzzle {
   const state = getPuzzleState();
-  const slide = getCurrentSlide();
+  const slide = getLastSlide();
   const values = new Map<string, number>();
   const candidates = new Map<string, Set<number>>();
 
@@ -942,11 +960,10 @@ function isColorEqual(color: GoogleAppsScript.Slides.Color, hex: string): boolea
 }
 
 function makeNextSlide(puzzleSize: number, noteText = ''): void {
-  const slide = getCurrentSlide();
+  const slide = getLastSlide();
   if (noteText) {
     setSlideNotes(slide, noteText);
   }
-
   const newSlide = slide.duplicate();
   clearSlideNotes(newSlide);
 
@@ -1101,17 +1118,25 @@ function renderValueAndCandidateBoxes(ctx: GridRenderContext): void {
 }
 
 function saveCellState(cache: GoogleAppsScript.Cache.Cache | null, puzzle: Puzzle): void {
+  if (!cache) {
+    return;
+  }
+
   const values: Record<string, number> = {};
   const candidates: Record<string, number[]> = {};
+
   for (const cell of puzzle.cells) {
-    if (cell.value !== null) {
+    if (cell.value === null) {
+      const cands = cell.getCandidates();
+      if (cands.length > 0) {
+        candidates[cell.ref] = cands;
+      }
+    } else {
       values[cell.ref] = cell.value;
     }
-    if (cell.candidateCount > 0) {
-      candidates[cell.ref] = cell.getCandidates();
-    }
   }
-  cache?.put(CELL_STATE_CACHE_KEY, JSON.stringify({ candidates, values }), CACHE_EXPIRATION_SECONDS);
+
+  cache.put(CELL_STATE_CACHE_KEY, JSON.stringify({ candidates, values }), CACHE_EXPIRATION_SECONDS);
 }
 
 function scaleIfNeeded(pres: GoogleAppsScript.Slides.Presentation, ctx: GridRenderContext): void {
@@ -1187,7 +1212,7 @@ const CANDIDATES_FONT = 'Consolas';
 const CANDIDATE_ROW_COUNT = 2;
 const CELL_STATE_CACHE_KEY = 'cellState';
 const CHAR_CODE_A = 65;
-const ENTER_DIALOG_HEIGHT_PX = 140;
+const ENTER_DIALOG_HEIGHT_PX = 160;
 const ENTER_DIALOG_WIDTH_PX = 400;
 const FONT_FIT_HEIGHT_RATIO = 1.15;
 const FONT_FIT_PADDING_PT = 2;
