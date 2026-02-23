@@ -35,6 +35,7 @@ import {
   resolve
 } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import ora from 'ora';
 
 /* eslint-disable no-magic-numbers -- Enum values are literal status codes. */
 enum HttpStatusCodes {
@@ -50,9 +51,8 @@ const OFF_SCREEN_COORDINATE = -10000;
 
 interface Cage {
   cells: string[];
-  label?: string;
   operator?: string;
-  value?: number;
+  value: number;
 }
 
 interface CredentialsFile {
@@ -87,7 +87,6 @@ interface TokenData {
 
 interface YamlCage {
   cells?: unknown[];
-  label?: string;
   op?: string;
   operator?: string;
   value?: number;
@@ -150,7 +149,6 @@ async function bindAppsScript(auth: OAuth2Client, presId: string): Promise<strin
     });
   }
 
-  console.log(`Bound Apps Script project: ${scriptId}`);
   return scriptId;
 }
 
@@ -190,19 +188,14 @@ function buildPuzzleJson(spec: YamlSpec, name: string): PuzzleJson {
     }
     const cells = cellsRaw.map((c) => String(c).trim().toUpperCase());
 
-    const cage: Cage = { cells };
+    if (item.value === undefined) {
+      throw new Error(`cages[${String(idx)}].value is required`);
+    }
 
-    if (item.label === undefined) {
-      if (item.value === undefined) {
-        throw new Error(`cages[${String(idx)}] must have 'label' or 'value'`);
-      }
-      cage.value = item.value;
-      const op = item.op ?? item.operator;
-      if (op !== undefined) {
-        cage.operator = op.trim();
-      }
-    } else {
-      cage.label = item.label.trim();
+    const cage: Cage = { cells, value: item.value };
+    const op = item.op ?? item.operator;
+    if (op !== undefined) {
+      cage.operator = op.trim();
     }
 
     cages.push(cage);
@@ -225,12 +218,15 @@ async function buildSlides(specPath: string): Promise<string> {
   const driveSvc = google.drive({ auth, version: 'v3' });
   const slidesSvc = google.slides({ auth, version: 'v1' });
 
+  const spinner = ora();
+
   let presId: string;
   try {
     // 1. Upload PPTX template (960x540 pt) — presentations.create ignores pageSize
     if (!existsSync(TEMPLATE_PPTX)) {
       throw new Error(`Template not found: ${TEMPLATE_PPTX}`);
     }
+    spinner.start('Uploading template...');
     const driveFile = await driveSvc.files.create({
       fields: 'id',
       media: {
@@ -246,15 +242,19 @@ async function buildSlides(specPath: string): Promise<string> {
       throw new Error('Drive file creation returned no id');
     }
     presId = driveFile.data.id;
-    console.log(`Created presentation: ${name} (${presId})`);
+    spinner.succeed(`Created presentation: ${name} (${presId})`);
 
     // 2. Bind Apps Script
-    await bindAppsScript(auth, presId);
+    spinner.start('Binding Apps Script...');
+    const scriptId = await bindAppsScript(auth, presId);
+    spinner.succeed(`Bound Apps Script project: ${scriptId}`);
 
     // 3. Embed puzzle JSON in the first slide for Init menu to read
+    spinner.start('Embedding puzzle data...');
     await embedPuzzleData(slidesSvc, presId, puzzleJson);
-    console.log('Puzzle data embedded. Open the presentation and use Mathdoku > Init to complete setup.');
+    spinner.succeed('Puzzle data embedded');
   } catch (error: unknown) {
+    spinner.fail();
     if ((error as GaxiosError).response !== undefined) {
       handleHttpError(error as GaxiosError);
     }
@@ -262,7 +262,7 @@ async function buildSlides(specPath: string): Promise<string> {
   }
 
   const url = `https://docs.google.com/presentation/d/${presId}/edit`;
-  console.log(`URL: ${url}`);
+  console.log(`\n${name} \u2192 ${url}`);
   openBrowser(url);
   return url;
 }

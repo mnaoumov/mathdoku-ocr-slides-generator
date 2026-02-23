@@ -24,6 +24,7 @@
     "openxmlformats",
     "mnaoumov",
     "numpy",
+    "ora",
     "OTSU",
     "pyproject",
     "pytesseract",
