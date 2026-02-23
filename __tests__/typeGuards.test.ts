@@ -12,19 +12,19 @@ import {
 describe('assertNonNullable', () => {
   it('passes for non-null values', () => {
     expect(() => {
-      assertNonNullable(42);
+      assertNonNullable(42 as number | undefined);
     }).not.toThrow();
     expect(() => {
-      assertNonNullable('hello');
+      assertNonNullable('hello' as string | undefined);
     }).not.toThrow();
     expect(() => {
-      assertNonNullable(0);
+      assertNonNullable(0 as number | undefined);
     }).not.toThrow();
     expect(() => {
-      assertNonNullable('');
+      assertNonNullable('' as string | undefined);
     }).not.toThrow();
     expect(() => {
-      assertNonNullable(false);
+      assertNonNullable(false as boolean | undefined);
     }).not.toThrow();
   });
 
@@ -56,11 +56,11 @@ describe('assertNonNullable', () => {
 
 describe('ensureNonNullable', () => {
   it('returns the value for non-null inputs', () => {
-    expect(ensureNonNullable(42)).toBe(42);
-    expect(ensureNonNullable('hello')).toBe('hello');
-    expect(ensureNonNullable(0)).toBe(0);
-    expect(ensureNonNullable('')).toBe('');
-    expect(ensureNonNullable(false)).toBe(false);
+    expect(ensureNonNullable(42 as number | undefined)).toBe(42);
+    expect(ensureNonNullable('hello' as string | undefined)).toBe('hello');
+    expect(ensureNonNullable(0 as number | undefined)).toBe(0);
+    expect(ensureNonNullable('' as string | undefined)).toBe('');
+    expect(ensureNonNullable(false as boolean | undefined)).toBe(false);
   });
 
   it('throws for null', () => {

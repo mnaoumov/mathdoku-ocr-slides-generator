@@ -44,7 +44,7 @@ export class DeterminedByCageStrategy implements Strategy {
         }
 
         const targetValue = this.computeTargetValue(
-          ensureNonNullable(cage.operator),
+          cage.operator,
           cage.value,
           solvedAggregate,
           partitionResult
