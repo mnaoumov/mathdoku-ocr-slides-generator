@@ -162,7 +162,7 @@ export function addChanges(): void {
   }
 }
 
-export function applyOneStep(): StepResult {
+export function applyOneStep(): { pendingNames: readonly string[] } & StepResult {
   const cache = CacheService.getDocumentCache();
   const initialIndex = parseInt(cache?.get(INITIAL_STRATEGY_INDEX_CACHE_KEY) ?? '-1', 10);
 
@@ -176,7 +176,7 @@ export function applyOneStep(): StepResult {
       if (result.applied) {
         cache?.put(INITIAL_STRATEGY_INDEX_CACHE_KEY, String(i + 1), CACHE_EXPIRATION_SECONDS);
         saveCellState(cache, puzzle);
-        return { ...result, skipped };
+        return { ...result, pendingNames: getPendingStrategyNames(cache, puzzle.puzzleSize), skipped };
       }
       skipped.push(strategy.name);
     }
@@ -188,7 +188,7 @@ export function applyOneStep(): StepResult {
       cache?.remove(CELL_STATE_CACHE_KEY);
       clearSlideNotes(getLastSlide());
     }
-    return { ...result, skipped: [...skipped, ...result.skipped] };
+    return { ...result, pendingNames: getPendingStrategyNames(cache, puzzle.puzzleSize), skipped: [...skipped, ...result.skipped] };
   }
 
   const puzzle = buildPuzzleFromCache(cache);
@@ -199,7 +199,7 @@ export function applyOneStep(): StepResult {
     cache?.remove(CELL_STATE_CACHE_KEY);
     clearSlideNotes(getLastSlide());
   }
-  return result;
+  return { ...result, pendingNames: getPendingStrategyNames(cache, puzzle.puzzleSize) };
 }
 
 export function finishInit(): void {
@@ -221,14 +221,16 @@ export function getPuzzleJsonFromCache(): string {
   return json;
 }
 
-export function getRevertState(): { lastSlideNotes: string; slideCount: number } {
+export function getRevertState(): { lastSlideNotes: string; pendingNames: readonly string[]; slideCount: number } {
   const pres = SlidesApp.getActivePresentation();
   const slides = pres.getSlides();
   const lastSlide = slides[slides.length - 1];
   const notes = lastSlide
     ? lastSlide.getNotesPage().getSpeakerNotesShape().getText().asString().replace(/\n$/, '')
     : '';
-  return { lastSlideNotes: notes, slideCount: slides.length };
+  const cache = CacheService.getDocumentCache();
+  const state = getPuzzleState();
+  return { lastSlideNotes: notes, pendingNames: getPendingStrategyNames(cache, state.puzzleSize), slideCount: slides.length };
 }
 
 export function importPuzzle(puzzleJson: PuzzleJson | string, presId?: string): void {
@@ -835,6 +837,16 @@ function getLastSlide(): GoogleAppsScript.Slides.Slide {
     throw new Error('Presentation has no slides');
   }
   return last;
+}
+
+function getPendingStrategyNames(cache: GoogleAppsScript.Cache.Cache | null, puzzleSize: number): string[] {
+  const initialIndex = parseInt(cache?.get(INITIAL_STRATEGY_INDEX_CACHE_KEY) ?? '-1', 10);
+  const automatedNames = createStrategies(puzzleSize).map((s) => s.name);
+  if (initialIndex >= 0) {
+    const initialNames = createInitialStrategies().map((s) => s.name);
+    return [...initialNames.slice(initialIndex), ...automatedNames];
+  }
+  return automatedNames;
 }
 
 function getPuzzleState(): PuzzleState {

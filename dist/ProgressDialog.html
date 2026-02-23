@@ -41,6 +41,7 @@
     var stepCount = 0;
     var activeEntry = null;
     var isInit = false;
+    var pendingNames = [];
 
     function addLogEntry(text, className) {
       if (activeEntry) {
@@ -111,9 +112,14 @@
       }
     }
 
+    function spinnerText() {
+      if (pendingNames.length === 0) return "Applying strategy...";
+      return "Testing: " + pendingNames.join(", ") + "...";
+    }
+
     function runChunks() {
       if (cancelled) return;
-      var pendingEntry = addLogEntry("Applying strategy...", "active");
+      var pendingEntry = addLogEntry(spinnerText(), "active");
       google.script.run
         .withSuccessHandler(function(result) {
           if (cancelled) return;
@@ -128,6 +134,7 @@
             stepCount++;
             var startSlide = result.slideNumber - 1;
             addLogEntry("Slide " + startSlide + "-" + result.slideNumber + ": " + (result.message || ("Step " + stepCount)), "done");
+            pendingNames = result.pendingNames || [];
             runChunks();
           } else {
             showDone();
@@ -141,6 +148,7 @@
       google.script.run
         .withSuccessHandler(function(state) {
           revertState = state;
+          pendingNames = state.pendingNames || [];
           runChunks();
         })
         .withFailureHandler(onError)
