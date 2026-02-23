@@ -19,6 +19,7 @@ interface HiddenSingleFound {
 }
 
 export class HiddenSingleStrategy implements Strategy {
+  public readonly name = 'Hidden single';
   public tryApply(puzzle: Puzzle): null | StrategyResult {
     const results: HiddenSingleFound[] = [];
     const seen = new Set<Cell>();
@@ -40,7 +41,7 @@ export class HiddenSingleStrategy implements Strategy {
     );
     return {
       changeGroups,
-      note: `Hidden single. ${noteEntries.join(', ')}`
+      details: noteEntries.join(', ')
     };
   }
 

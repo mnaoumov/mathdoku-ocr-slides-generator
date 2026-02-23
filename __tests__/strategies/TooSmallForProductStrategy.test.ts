@@ -5,21 +5,22 @@ import {
 } from 'vitest';
 
 import { CandidatesStrikethrough } from '../../src/cellChanges/CandidatesStrikethrough.ts';
-import { TooSmallInProductStrategy } from '../../src/strategies/TooSmallInProductStrategy.ts';
+import { Operator } from '../../src/Puzzle.ts';
+import { TooSmallForProductStrategy } from '../../src/strategies/TooSmallForProductStrategy.ts';
 import { ensureNonNullable } from '../../src/typeGuards.ts';
 import {
   createTestPuzzle,
   fillRemainingCells
 } from '../puzzleTestHelper.ts';
 
-describe('TooSmallInProductStrategy', () => {
-  const strategy = new TooSmallInProductStrategy();
+describe('TooSmallForProductStrategy', () => {
+  const strategy = new TooSmallForProductStrategy();
 
   it('eliminates candidates with unachievable quotient', () => {
     // Cage 72x with 3 cells in 6x6: values 1,2 divide 72 but quotients (72,36)
     // Exceed max product of 2 remaining cells (5×6=30) → too small
     const cages = fillRemainingCells([
-      { cells: ['A1', 'B1', 'A2'], operator: 'x', value: 72 }
+      { cells: ['A1', 'B1', 'A2'], operator: Operator.Times, value: 72 }
     ], 6);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 6 });
     for (const cell of puzzle.cells) {
@@ -28,16 +29,16 @@ describe('TooSmallInProductStrategy', () => {
 
     const result = strategy.tryApply(puzzle);
     expect(result).not.toBeNull();
-    const { note } = ensureNonNullable(result);
+    const { details } = ensureNonNullable(result);
 
-    expect(note).toContain('{12} too small');
-    expect(note).toContain('Too small in product.');
+    expect(details).toContain('-1');
+    expect(details).toContain('-2');
   });
 
   it('returns null when quotients are within range', () => {
     // Cage 6x with 2 cells in 6x6: value 2 → quotient 3 ≤ 6, value 3 → quotient 2 ≤ 6
     const cages = fillRemainingCells([
-      { cells: ['A1', 'B1'], operator: 'x', value: 6 }
+      { cells: ['A1', 'B1'], operator: Operator.Times, value: 6 }
     ], 6);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 6 });
     puzzle.getCell('A1').setCandidates([1, 2, 3, 6]);
@@ -48,7 +49,7 @@ describe('TooSmallInProductStrategy', () => {
 
   it('returns null for addition cages', () => {
     const cages = fillRemainingCells([
-      { cells: ['A1', 'B1'], operator: '+', value: 8 }
+      { cells: ['A1', 'B1'], operator: Operator.Plus, value: 8 }
     ], 6);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 6 });
     for (const cell of puzzle.cells) {
@@ -59,9 +60,9 @@ describe('TooSmallInProductStrategy', () => {
   });
 
   it('skips candidates that do not divide the cage value', () => {
-    // Cage 20x: value 3 doesn't divide 20, so TooSmallInProduct should NOT claim it
+    // Cage 20x: value 3 doesn't divide 20, so TooSmallForProduct should NOT claim it
     const cages = fillRemainingCells([
-      { cells: ['A1', 'B1', 'A2'], operator: 'x', value: 20 }
+      { cells: ['A1', 'B1', 'A2'], operator: Operator.Times, value: 20 }
     ], 6);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 6 });
     for (const cell of puzzle.cells) {

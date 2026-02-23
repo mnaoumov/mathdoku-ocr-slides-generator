@@ -5,6 +5,7 @@ import {
 } from 'vitest';
 
 import { CandidatesStrikethrough } from '../../src/cellChanges/CandidatesStrikethrough.ts';
+import { Operator } from '../../src/Puzzle.ts';
 import { NakedSetStrategy } from '../../src/strategies/NakedSetStrategy.ts';
 import { ensureNonNullable } from '../../src/typeGuards.ts';
 import { createTestPuzzle } from '../puzzleTestHelper.ts';
@@ -12,9 +13,9 @@ import { createTestPuzzle } from '../puzzleTestHelper.ts';
 describe('NakedSetStrategy', () => {
   it('returns null when no naked pairs exist', () => {
     const cages = [
-      { cells: ['A1', 'A2', 'A3'], operator: '+', value: 6 },
-      { cells: ['B1', 'B2', 'B3'], operator: '+', value: 6 },
-      { cells: ['C1', 'C2', 'C3'], operator: '+', value: 6 }
+      { cells: ['A1', 'A2', 'A3'], operator: Operator.Plus, value: 6 },
+      { cells: ['B1', 'B2', 'B3'], operator: Operator.Plus, value: 6 },
+      { cells: ['C1', 'C2', 'C3'], operator: Operator.Plus, value: 6 }
     ];
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 3 });
     for (const cell of puzzle.cells) {
@@ -26,9 +27,9 @@ describe('NakedSetStrategy', () => {
 
   it('finds naked pair and eliminates from other cells in the house', () => {
     const cages = [
-      { cells: ['A1', 'A2', 'A3'], operator: '+', value: 6 },
-      { cells: ['B1', 'B2', 'B3'], operator: '+', value: 6 },
-      { cells: ['C1', 'C2', 'C3'], operator: '+', value: 6 }
+      { cells: ['A1', 'A2', 'A3'], operator: Operator.Plus, value: 6 },
+      { cells: ['B1', 'B2', 'B3'], operator: Operator.Plus, value: 6 },
+      { cells: ['C1', 'C2', 'C3'], operator: Operator.Plus, value: 6 }
     ];
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 3 });
     puzzle.getCell('A1').setCandidates([1, 2]);
@@ -54,14 +55,14 @@ describe('NakedSetStrategy', () => {
     const eliminatedValues = c1Changes.flatMap((c) => [...c.values]);
     expect(eliminatedValues).toContain(1);
     expect(eliminatedValues).toContain(2);
-    expect(r.note).toContain('Naked pair.');
+    expect(r.details).toBeDefined();
   });
 
   it('skips solved cells', () => {
     const cages = [
-      { cells: ['A1', 'A2', 'A3'], operator: '+', value: 6 },
-      { cells: ['B1', 'B2', 'B3'], operator: '+', value: 6 },
-      { cells: ['C1', 'C2', 'C3'], operator: '+', value: 6 }
+      { cells: ['A1', 'A2', 'A3'], operator: Operator.Plus, value: 6 },
+      { cells: ['B1', 'B2', 'B3'], operator: Operator.Plus, value: 6 },
+      { cells: ['C1', 'C2', 'C3'], operator: Operator.Plus, value: 6 }
     ];
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 3 });
     puzzle.getCell('A1').setValue(1);

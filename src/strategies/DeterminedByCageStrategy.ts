@@ -9,9 +9,11 @@ import type {
 } from './Strategy.ts';
 
 import { buildAutoEliminateGroup } from '../cageConstraints.ts';
+import { Operator } from '../Puzzle.ts';
 import { ensureNonNullable } from '../typeGuards.ts';
 
 export class DeterminedByCageStrategy implements Strategy {
+  public readonly name = 'Determined by cage';
   public tryApply(puzzle: Puzzle): null | StrategyResult {
     const changeGroups: ChangeGroup[] = [];
     const affectedRefs: string[] = [];
@@ -20,8 +22,7 @@ export class DeterminedByCageStrategy implements Strategy {
       if (cage.cells.length <= 1) {
         continue;
       }
-      const cageValue = cage.value;
-      if (cage.operator !== '+' && cage.operator !== 'x') {
+      if (cage.operator !== Operator.Plus && cage.operator !== Operator.Times) {
         continue;
       }
 
@@ -31,7 +32,7 @@ export class DeterminedByCageStrategy implements Strategy {
       }
 
       const solvedValues = cage.cells.filter((c) => c.isSolved).map((c) => ensureNonNullable(c.value));
-      const solvedAggregate = cage.operator === '+'
+      const solvedAggregate = cage.operator === Operator.Plus
         ? solvedValues.reduce((s, v) => s + v, 0)
         : solvedValues.reduce((p, v) => p * v, 1);
 
@@ -44,7 +45,7 @@ export class DeterminedByCageStrategy implements Strategy {
 
         const targetValue = this.computeTargetValue(
           ensureNonNullable(cage.operator),
-          cageValue,
+          cage.value,
           solvedAggregate,
           partitionResult
         );
@@ -69,17 +70,17 @@ export class DeterminedByCageStrategy implements Strategy {
 
     return {
       changeGroups,
-      note: `Determined by cage. ${affectedRefs.join(', ')}`
+      details: affectedRefs.join(', ')
     };
   }
 
   private computeTargetValue(
-    operator: string,
+    operator: Operator,
     cageValue: number,
     solvedAggregate: number,
     otherAggregate: number
   ): null | number {
-    if (operator === '+') {
+    if (operator === Operator.Plus) {
       return cageValue - solvedAggregate - otherAggregate;
     }
     const denominator = solvedAggregate * otherAggregate;
@@ -95,7 +96,7 @@ export class DeterminedByCageStrategy implements Strategy {
   ): null | number {
     const uncovered = new Set(otherCells);
     const isMultiplication = otherCells.length > 0
-      && ensureNonNullable(otherCells[0]).cage.operator === 'x';
+      && ensureNonNullable(otherCells[0]).cage.operator === Operator.Times;
     let aggregate = isMultiplication ? 1 : 0;
 
     for (const house of puzzle.houses) {

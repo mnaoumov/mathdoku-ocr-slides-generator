@@ -3,26 +3,30 @@ import type {
   HouseType
 } from '../Puzzle.ts';
 
+import { Operator } from '../Puzzle.ts';
+import { ensureNonNullable } from '../typeGuards.ts';
+
 export const BINARY_CELL_COUNT = 2;
 
 export function canBeOperator(
-  operator: string,
+  operator: Operator,
   cageValue: number,
   cellCount: number,
   puzzleSize: number
 ): boolean {
   switch (operator) {
-    case '-':
-      return cellCount === BINARY_CELL_COUNT && cageValue >= 1 && cageValue < puzzleSize;
-    case '/':
+    case Operator.Divide:
       return cellCount === BINARY_CELL_COUNT && cageValue >= BINARY_CELL_COUNT && cageValue <= puzzleSize;
-    case '+': {
+    case Operator.Minus:
+      return cellCount === BINARY_CELL_COUNT && cageValue >= 1 && cageValue < puzzleSize;
+    case Operator.Plus: {
       const minSum = cellCount * (cellCount + 1) / BINARY_CELL_COUNT;
       const maxSum = cellCount * puzzleSize - cellCount * (cellCount - 1) / BINARY_CELL_COUNT;
       return cageValue >= minSum && cageValue <= maxSum;
     }
-    case 'x':
+    case Operator.Times:
       return canBeMultiplication(cageValue, cellCount, puzzleSize);
+    case Operator.Unknown:
     default:
       return false;
   }
@@ -45,13 +49,13 @@ export function deduceOperator(
   cageValue: number,
   cellCount: number,
   puzzleSize: number
-): string | undefined {
+): Operator {
   const possibleOperators = cellCount === BINARY_CELL_COUNT
-    ? ['+', '-', 'x', '/']
-    : ['+', 'x'];
+    ? [Operator.Divide, Operator.Minus, Operator.Plus, Operator.Times]
+    : [Operator.Plus, Operator.Times];
 
   const feasible = possibleOperators.filter((op) => canBeOperator(op, cageValue, cellCount, puzzleSize));
-  return feasible.length === 1 ? feasible[0] : undefined;
+  return feasible.length === 1 ? ensureNonNullable(feasible[0]) : Operator.Unknown;
 }
 
 function canBeMultiplication(

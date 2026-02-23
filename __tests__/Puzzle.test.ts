@@ -8,7 +8,10 @@ import { CandidatesChange } from '../src/cellChanges/CandidatesChange.ts';
 import { CandidatesStrikethrough } from '../src/cellChanges/CandidatesStrikethrough.ts';
 import { CellClearance } from '../src/cellChanges/CellClearance.ts';
 import { ValueChange } from '../src/cellChanges/ValueChange.ts';
-import { initPuzzleSlides } from '../src/Puzzle.ts';
+import {
+  initPuzzleSlides,
+  Operator
+} from '../src/Puzzle.ts';
 import {
   createInitialStrategies,
   createStrategies
@@ -19,14 +22,14 @@ import {
 } from './puzzleTestHelper.ts';
 
 const SIZE_4_CAGES = [
-  { cells: ['A1', 'A2'], operator: '+', value: 3 },
-  { cells: ['B1', 'B2'], operator: '-', value: 1 },
-  { cells: ['A3', 'B3'], operator: '+', value: 7 },
-  { cells: ['A4', 'B4'], operator: 'x', value: 12 },
-  { cells: ['C1', 'C2'], operator: '+', value: 5 },
-  { cells: ['D1', 'D2'], operator: '-', value: 1 },
-  { cells: ['C3', 'D3'], operator: '+', value: 5 },
-  { cells: ['C4', 'D4'], operator: 'x', value: 2 }
+  { cells: ['A1', 'A2'], operator: Operator.Plus, value: 3 },
+  { cells: ['B1', 'B2'], operator: Operator.Minus, value: 1 },
+  { cells: ['A3', 'B3'], operator: Operator.Plus, value: 7 },
+  { cells: ['A4', 'B4'], operator: Operator.Times, value: 12 },
+  { cells: ['C1', 'C2'], operator: Operator.Plus, value: 5 },
+  { cells: ['D1', 'D2'], operator: Operator.Minus, value: 1 },
+  { cells: ['C3', 'D3'], operator: Operator.Plus, value: 5 },
+  { cells: ['C4', 'D4'], operator: Operator.Times, value: 2 }
 ];
 
 describe('Puzzle', () => {
@@ -49,7 +52,7 @@ describe('Puzzle', () => {
 
     it('throws if cell is not in any cage', () => {
       const incompleteCages = [
-        { cells: ['A1'], value: 1 }
+        { cells: ['A1'], operator: Operator.Unknown, value: 1 }
       ];
       expect(() => createTestPuzzle({ cages: incompleteCages, hasOperators: true, puzzleSize: 2 })).toThrow('not found in any cage');
     });
@@ -261,8 +264,8 @@ describe('Cell', () => {
 
 describe('tryApplyAutomatedStrategies', () => {
   const SIZE_2_CAGES = [
-    { cells: ['A1', 'B1'], operator: '+', value: 3 },
-    { cells: ['A2', 'B2'], operator: '+', value: 3 }
+    { cells: ['A1', 'B1'], operator: Operator.Plus, value: 3 },
+    { cells: ['A2', 'B2'], operator: Operator.Plus, value: 3 }
   ];
 
   it('returns false when no strategies apply', () => {
@@ -302,8 +305,8 @@ describe('tryApplyAutomatedStrategies', () => {
 
 describe('ensureLastSlide guard', () => {
   const SIZE_2_CAGES = [
-    { cells: ['A1', 'B1'], operator: '+', value: 3 },
-    { cells: ['A2', 'B2'], operator: '+', value: 3 }
+    { cells: ['A1', 'B1'], operator: Operator.Plus, value: 3 },
+    { cells: ['A2', 'B2'], operator: Operator.Plus, value: 3 }
   ];
 
   it('enter does nothing when not on last slide', () => {
@@ -331,8 +334,8 @@ describe('ensureLastSlide guard', () => {
 
 describe('slide notes tracking', () => {
   const SIZE_2_CAGES = [
-    { cells: ['A1', 'B1'], operator: '+', value: 3 },
-    { cells: ['A2', 'B2'], operator: '+', value: 3 }
+    { cells: ['A1', 'B1'], operator: Operator.Plus, value: 3 },
+    { cells: ['A2', 'B2'], operator: Operator.Plus, value: 3 }
   ];
 
   it('records note text on both pending and committed slides for enter+commit', () => {
@@ -362,7 +365,7 @@ describe('slide notes tracking', () => {
     puzzle.tryApplyAutomatedStrategies();
 
     // 2 strategy steps, each producing 2 slides (pending + committed) with strategy-specific notes
-    const strategyNotes = renderer.notesBySlide.filter((n) => n.startsWith('Single candidate.'));
+    const strategyNotes = renderer.notesBySlide.filter((n) => n.startsWith('Single candidate:'));
     expect(strategyNotes).toHaveLength(4);
   });
 
@@ -416,8 +419,8 @@ describe('initPuzzleSlides notes', () => {
 
   it('produces 3 slides when only FillAllCandidates fires', () => {
     const cages = [
-      { cells: ['A1', 'B1'], value: 3 },
-      { cells: ['A2', 'B2'], value: 3 }
+      { cells: ['A1', 'B1'], operator: Operator.Unknown, value: 3 },
+      { cells: ['A2', 'B2'], operator: Operator.Unknown, value: 3 }
     ];
     const renderer = new TrackingRenderer();
     initPuzzleSlides({

@@ -382,7 +382,7 @@ def _group_cages(
 
 # ── label OCR ──────────────────────────────────────────────────────────────
 
-_LABEL_RE = re.compile(r"^(\d[\d,]*)([+\-x×÷/?])?$")
+_LABEL_RE = re.compile(r"^(\d[\d,]*)([+\-x/])?$")
 
 
 def _require_tesseract() -> None:

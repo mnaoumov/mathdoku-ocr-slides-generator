@@ -5,6 +5,7 @@ import {
 } from 'vitest';
 
 import { CandidatesStrikethrough } from '../../src/cellChanges/CandidatesStrikethrough.ts';
+import { Operator } from '../../src/Puzzle.ts';
 import { NoCageCombinationStrategy } from '../../src/strategies/NoCageCombinationStrategy.ts';
 import { ensureNonNullable } from '../../src/typeGuards.ts';
 import {
@@ -21,7 +22,7 @@ describe('NoCageCombinationStrategy', () => {
     // B1=3 needs A1=4 (not in {1,5}) → eliminate B1=3
     // B1=4 needs A1=3 (not in {1,5}) → eliminate B1=4
     const cages = fillRemainingCells([
-      { cells: ['A1', 'B1'], operator: '+', value: 7 }
+      { cells: ['A1', 'B1'], operator: Operator.Plus, value: 7 }
     ], 6);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 6 });
     puzzle.getCell('A1').setCandidates([1, 5]);
@@ -42,7 +43,7 @@ describe('NoCageCombinationStrategy', () => {
     ) as CandidatesStrikethrough[];
     expect(b1Changes.flatMap((c) => [...c.values])).toEqual([3, 4]);
 
-    expect(r.note).toContain('No cage combination.');
+    expect(r.details).toBeDefined();
   });
 
   it('eliminates infeasible candidates in a 2-cell x cage', () => {
@@ -51,7 +52,7 @@ describe('NoCageCombinationStrategy', () => {
     // A1=3 needs B1=4 (not in {1,3,6}) → eliminate A1=3
     // B1=1 needs A1=12 (not in {2,3,4}) → eliminate B1=1
     const cages = fillRemainingCells([
-      { cells: ['A1', 'B1'], operator: 'x', value: 12 }
+      { cells: ['A1', 'B1'], operator: Operator.Times, value: 12 }
     ], 6);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 6 });
     puzzle.getCell('A1').setCandidates([2, 3, 4]);
@@ -79,7 +80,7 @@ describe('NoCageCombinationStrategy', () => {
     // A1=2,A2=1,B1=3 (2+1+3=6) ✓
     // B1=1 and B1=2 have no valid combination → eliminate
     const cages = fillRemainingCells([
-      { cells: ['A1', 'A2', 'B1'], operator: '+', value: 6 }
+      { cells: ['A1', 'A2', 'B1'], operator: Operator.Plus, value: 6 }
     ], 4);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 4 });
     puzzle.getCell('A1').setCandidates([1, 2]);
@@ -116,7 +117,7 @@ describe('NoCageCombinationStrategy', () => {
     // A2=3,B2=3 → same row, same value → invalid
     // A2=3 eliminated
     const cages = fillRemainingCells([
-      { cells: ['A1', 'A2', 'B2'], operator: '+', value: 10 }
+      { cells: ['A1', 'A2', 'B2'], operator: Operator.Plus, value: 10 }
     ], 6);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 6 });
     puzzle.getCell('A1').setValue(4);
@@ -142,7 +143,7 @@ describe('NoCageCombinationStrategy', () => {
     // Cage 3+ with A1={1,2}, B1={1,2}
     // A1=1,B1=2 ✓; A1=2,B1=1 ✓ → all feasible
     const cages = fillRemainingCells([
-      { cells: ['A1', 'B1'], operator: '+', value: 3 }
+      { cells: ['A1', 'B1'], operator: Operator.Plus, value: 3 }
     ], 4);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 4 });
     puzzle.getCell('A1').setCandidates([1, 2]);
@@ -158,7 +159,7 @@ describe('NoCageCombinationStrategy', () => {
     // B1: 2 valid (with A1=1 or A1=3), 4 valid (with A1=3 or A1=5) → all valid
     // Nothing to eliminate → null
     const cages = fillRemainingCells([
-      { cells: ['A1', 'B1'], operator: '-', value: 1 }
+      { cells: ['A1', 'B1'], operator: Operator.Minus, value: 1 }
     ], 6);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 6 });
     puzzle.getCell('A1').setCandidates([1, 3, 5]);
@@ -173,7 +174,7 @@ describe('NoCageCombinationStrategy', () => {
     // Only valid: A1=5,B1=4
     // Eliminate A1=1, B1=3
     const cages = fillRemainingCells([
-      { cells: ['A1', 'B1'], operator: '-', value: 1 }
+      { cells: ['A1', 'B1'], operator: Operator.Minus, value: 1 }
     ], 6);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 6 });
     puzzle.getCell('A1').setCandidates([1, 5]);
@@ -202,7 +203,7 @@ describe('NoCageCombinationStrategy', () => {
     // Only valid: A1=1,B1=3
     // Eliminate A1=2, A1=6, B1=1
     const cages = fillRemainingCells([
-      { cells: ['A1', 'B1'], operator: '/', value: 3 }
+      { cells: ['A1', 'B1'], operator: Operator.Divide, value: 3 }
     ], 6);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 6 });
     puzzle.getCell('A1').setCandidates([1, 2, 6]);
@@ -233,7 +234,7 @@ describe('NoCageCombinationStrategy', () => {
     // /: max(1,1)/min(1,1)=1≠3, etc → no valid tuples
     // Union from +: A1∈{1,2}, B1∈{1,2} → all feasible → null
     const cages = fillRemainingCells([
-      { cells: ['A1', 'B1'], value: 3 }
+      { cells: ['A1', 'B1'], operator: Operator.Unknown, value: 3 }
     ], 4);
     const puzzle = createTestPuzzle({ cages, hasOperators: false, puzzleSize: 4 });
     puzzle.getCell('A1').setCandidates([1, 2]);
@@ -252,7 +253,7 @@ describe('NoCageCombinationStrategy', () => {
     // /: max/min: 1/1=1, 4/1=4, 4/4=1 → none equal 5
     // Union: {1,4} for both → all feasible → null
     const cages = fillRemainingCells([
-      { cells: ['A1', 'B1'], value: 5 }
+      { cells: ['A1', 'B1'], operator: Operator.Unknown, value: 5 }
     ], 6);
     const puzzle = createTestPuzzle({ cages, hasOperators: false, puzzleSize: 6 });
     puzzle.getCell('A1').setCandidates([1, 4]);
@@ -263,7 +264,7 @@ describe('NoCageCombinationStrategy', () => {
 
   it('skips single-cell cages', () => {
     const cages = fillRemainingCells([
-      { cells: ['A1'], value: 3 }
+      { cells: ['A1'], operator: Operator.Unknown, value: 3 }
     ], 4);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 4 });
     puzzle.getCell('A1').setCandidates([1, 2, 3]);
@@ -273,7 +274,7 @@ describe('NoCageCombinationStrategy', () => {
 
   it('skips cages with only one unsolved cell', () => {
     const cages = fillRemainingCells([
-      { cells: ['A1', 'B1'], operator: '+', value: 5 }
+      { cells: ['A1', 'B1'], operator: Operator.Plus, value: 5 }
     ], 4);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 4 });
     puzzle.getCell('A1').setValue(2);
@@ -285,7 +286,7 @@ describe('NoCageCombinationStrategy', () => {
   it('provides per-cell reasons with the 2-cell complement format', () => {
     // Cage 7+ with A1={1,5}, B1={3,4,6}
     const cages = fillRemainingCells([
-      { cells: ['A1', 'B1'], operator: '+', value: 7 }
+      { cells: ['A1', 'B1'], operator: Operator.Plus, value: 7 }
     ], 6);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 6 });
     puzzle.getCell('A1').setCandidates([1, 5]);
@@ -308,7 +309,7 @@ describe('NoCageCombinationStrategy', () => {
     // 1+1=2≠4, 1+2=3≠4, 2+1=3≠4, 2+2=4 but latin square blocks → no valid tuples
     // All eliminated for both cells
     const cages = fillRemainingCells([
-      { cells: ['A1', 'B1'], operator: '+', value: 4 }
+      { cells: ['A1', 'B1'], operator: Operator.Plus, value: 4 }
     ], 4);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 4 });
     puzzle.getCell('A1').setCandidates([1, 2]);

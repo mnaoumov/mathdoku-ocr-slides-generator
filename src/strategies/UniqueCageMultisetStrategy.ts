@@ -11,6 +11,7 @@ import {
 } from '../cageConstraints.ts';
 
 export class UniqueCageMultisetStrategy implements Strategy {
+  public readonly name = 'Unique cage multiset';
   public tryApply(puzzle: Puzzle): null | StrategyResult {
     const changeGroups: ChangeGroup[] = [];
     const affectedCageRefs: string[] = [];
@@ -44,7 +45,7 @@ export class UniqueCageMultisetStrategy implements Strategy {
 
     return {
       changeGroups,
-      note: `Unique cage multiset. ${affectedCageRefs.join(', ')}`
+      details: affectedCageRefs.join(', ')
     };
   }
 }

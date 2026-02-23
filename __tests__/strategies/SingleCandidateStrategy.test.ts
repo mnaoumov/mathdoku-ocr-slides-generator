@@ -5,6 +5,7 @@ import {
 } from 'vitest';
 
 import { ValueChange } from '../../src/cellChanges/ValueChange.ts';
+import { Operator } from '../../src/Puzzle.ts';
 import { SingleCandidateStrategy } from '../../src/strategies/SingleCandidateStrategy.ts';
 import { ensureNonNullable } from '../../src/typeGuards.ts';
 import { createTestPuzzle } from '../puzzleTestHelper.ts';
@@ -14,8 +15,8 @@ describe('SingleCandidateStrategy', () => {
 
   it('returns null when no cells have exactly one candidate', () => {
     const cages = [
-      { cells: ['A1', 'B1'], operator: '+', value: 3 },
-      { cells: ['A2', 'B2'], operator: '+', value: 3 }
+      { cells: ['A1', 'B1'], operator: Operator.Plus, value: 3 },
+      { cells: ['A2', 'B2'], operator: Operator.Plus, value: 3 }
     ];
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 2 });
     for (const cell of puzzle.cells) {
@@ -26,8 +27,8 @@ describe('SingleCandidateStrategy', () => {
 
   it('finds cells with single candidate and sets their value', () => {
     const cages = [
-      { cells: ['A1', 'B1'], operator: '+', value: 3 },
-      { cells: ['A2', 'B2'], operator: '+', value: 3 }
+      { cells: ['A1', 'B1'], operator: Operator.Plus, value: 3 },
+      { cells: ['A2', 'B2'], operator: Operator.Plus, value: 3 }
     ];
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 2 });
     puzzle.getCell('A1').setCandidates([1]);
@@ -40,13 +41,13 @@ describe('SingleCandidateStrategy', () => {
     const r = ensureNonNullable(result);
     const changes = r.changeGroups.flatMap((g) => g.changes);
     expect(changes.some((c) => c instanceof ValueChange && c.cell.ref === 'A1' && c.value === 1)).toBe(true);
-    expect(r.note).toBe('Single candidate. A1');
+    expect(r.details).toBe('A1');
   });
 
   it('skips already solved cells', () => {
     const cages = [
-      { cells: ['A1', 'B1'], operator: '+', value: 3 },
-      { cells: ['A2', 'B2'], operator: '+', value: 3 }
+      { cells: ['A1', 'B1'], operator: Operator.Plus, value: 3 },
+      { cells: ['A2', 'B2'], operator: Operator.Plus, value: 3 }
     ];
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 2 });
     puzzle.getCell('A1').setValue(1);

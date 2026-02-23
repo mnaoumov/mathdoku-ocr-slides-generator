@@ -20,7 +20,10 @@ const NAKED_SET_NAMES: Record<number, string> = {
 };
 
 export class NakedSetStrategy implements Strategy {
+  public readonly name: string;
+
   public constructor(private readonly subsetSize: number) {
+    this.name = NAKED_SET_NAMES[subsetSize] ?? `Naked set (${String(subsetSize)})`;
   }
 
   public tryApply(puzzle: Puzzle): null | StrategyResult {
@@ -37,11 +40,10 @@ export class NakedSetStrategy implements Strategy {
       return null;
     }
 
-    const name = NAKED_SET_NAMES[this.subsetSize] ?? `Naked set (${String(this.subsetSize)})`;
     const subsetDescriptions = changeGroups.map((g) => g.reason);
     return {
       changeGroups,
-      note: `${name}. ${subsetDescriptions.join(', ')}`
+      details: subsetDescriptions.join(', ')
     };
   }
 

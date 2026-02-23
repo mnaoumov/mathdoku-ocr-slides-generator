@@ -4,7 +4,10 @@ import type {
 } from '../src/Puzzle.ts';
 import type { Strategy } from '../src/strategies/Strategy.ts';
 
-import { Puzzle } from '../src/Puzzle.ts';
+import {
+  Operator,
+  Puzzle
+} from '../src/Puzzle.ts';
 
 export interface CreateTestPuzzleOptions {
   readonly cages: readonly CageRaw[];
@@ -95,7 +98,7 @@ export function fillRemainingCells(cages: readonly CageRaw[], puzzleSize: number
     for (let col = 1; col <= puzzleSize; col++) {
       const ref = String.fromCharCode(CHAR_CODE_A + col - 1) + String(row);
       if (!covered.has(ref)) {
-        result.push({ cells: [ref], value: 1 });
+        result.push({ cells: [ref], operator: Operator.Unknown, value: 1 });
       }
     }
   }

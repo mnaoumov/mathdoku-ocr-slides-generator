@@ -1,20 +1,21 @@
 import type { CageContext } from './CageOperationStrategy.ts';
 
+import { Operator } from '../Puzzle.ts';
 import {
   BINARY_CELL_COUNT,
   computeLatinSquareBound
 } from './cageOperationBounds.ts';
 import { CageOperationStrategy } from './CageOperationStrategy.ts';
 
-export class TooBigInProductStrategy extends CageOperationStrategy {
-  protected readonly notePrefix = 'Too big in product';
+export class TooBigForProductStrategy extends CageOperationStrategy {
+  public readonly name = 'Too big for product';
 
   protected formatReason(eliminatedValues: readonly number[], _cageValue: number): string {
     return `${this.formatValues(eliminatedValues)} too big`;
   }
 
-  protected handlesOperator(operator: string | undefined): boolean {
-    return operator === 'x';
+  protected handlesOperator(operator: Operator): boolean {
+    return operator === Operator.Times;
   }
 
   protected shouldEliminate(value: number, ctx: CageContext): boolean {

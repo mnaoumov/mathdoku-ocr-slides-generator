@@ -10,6 +10,7 @@ import { buildAutoEliminateGroup } from '../cageConstraints.ts';
 import { ensureNonNullable } from '../typeGuards.ts';
 
 export class SingleCellCageStrategy implements Strategy {
+  public readonly name = 'Single cell';
   public tryApply(puzzle: Puzzle): null | StrategyResult {
     const valueSetters: CellValueSetter[] = [];
     for (const cage of puzzle.cages) {
@@ -27,6 +28,6 @@ export class SingleCellCageStrategy implements Strategy {
       (setter) => buildAutoEliminateGroup(setter, setter.cell.ref)
     );
     const cellRefs = valueSetters.map((s) => s.cell.ref).join(', ');
-    return { changeGroups, note: `Single cell. ${cellRefs}` };
+    return { changeGroups, details: cellRefs };
   }
 }

@@ -7,7 +7,8 @@ import { ValueChange } from './cellChanges/ValueChange.ts';
 import { evaluateTuple } from './combinatorics.ts';
 import {
   Cage,
-  Cell
+  Cell,
+  Operator
 } from './Puzzle.ts';
 import { ensureNonNullable } from './typeGuards.ts';
 
@@ -19,7 +20,7 @@ export interface CageConstraintContext {
 
 export interface CageTupleOptions {
   readonly cells: readonly Cell[];
-  readonly operator: string;
+  readonly operator: Operator;
   readonly puzzleSize: number;
   readonly value: number;
 }
@@ -28,9 +29,8 @@ export function applyCageConstraint(
   ctx: CageConstraintContext
 ): { candidateGroups: ChangeGroup[]; valueSetters: CellValueSetter[] } {
   const { cage, puzzleSize } = ctx;
-  const cageValue = cage.value;
 
-  const tuples = collectCageTuples(cageValue, ctx);
+  const tuples = collectCageTuples(cage.value, ctx);
   if (tuples.length === 0) {
     return { candidateGroups: [], valueSetters: [] };
   }
@@ -79,12 +79,12 @@ export function collectCageTuples(
   ctx: CageConstraintContext
 ): number[][] {
   const { cage, hasOperators, puzzleSize } = ctx;
-  if (hasOperators && cage.operator) {
+  if (hasOperators && cage.operator !== Operator.Unknown) {
     return computeValidCageTuples({ cells: cage.cells, operator: cage.operator, puzzleSize, value: cageValue });
   }
   const tupleSet = new Set<string>();
   const tuples: number[][] = [];
-  for (const op of ['+', '-', 'x', '/']) {
+  for (const op of [Operator.Divide, Operator.Minus, Operator.Plus, Operator.Times]) {
     for (const t of computeValidCageTuples({ cells: cage.cells, operator: op, puzzleSize, value: cageValue })) {
       const key = t.join(',');
       if (!tupleSet.has(key)) {

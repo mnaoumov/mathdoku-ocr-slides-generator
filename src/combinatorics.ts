@@ -1,6 +1,7 @@
 import type { CageRaw } from './Puzzle.ts';
 
 import { getCellRef } from './parsers.ts';
+import { Operator } from './Puzzle.ts';
 import { ensureNonNullable } from './typeGuards.ts';
 
 const BINARY_OP_SIZE = 2;
@@ -72,7 +73,7 @@ export class GridBoundaries {
   }
 }
 
-export function evaluateTuple(tuple: readonly number[], operator: string): null | number {
+export function evaluateTuple(tuple: readonly number[], operator: Operator): null | number {
   if (tuple.length === 0) {
     return null;
   }
@@ -84,21 +85,7 @@ export function evaluateTuple(tuple: readonly number[], operator: string): null 
   const b = ensureNonNullable(tuple[1]);
 
   switch (operator) {
-    case '-': {
-      if (tuple.length !== BINARY_OP_SIZE) {
-        return null;
-      }
-      return Math.abs(a - b);
-    }
-    case '*':
-    case 'x': {
-      let product = 1;
-      for (const d of tuple) {
-        product *= d;
-      }
-      return product;
-    }
-    case '/': {
+    case Operator.Divide: {
       if (tuple.length !== BINARY_OP_SIZE) {
         return null;
       }
@@ -109,13 +96,27 @@ export function evaluateTuple(tuple: readonly number[], operator: string): null 
       }
       return maxD % minD === 0 ? maxD / minD : null;
     }
-    case '+': {
+    case Operator.Minus: {
+      if (tuple.length !== BINARY_OP_SIZE) {
+        return null;
+      }
+      return Math.abs(a - b);
+    }
+    case Operator.Plus: {
       let sum = 0;
       for (const d of tuple) {
         sum += d;
       }
       return sum;
     }
+    case Operator.Times: {
+      let product = 1;
+      for (const d of tuple) {
+        product *= d;
+      }
+      return product;
+    }
+    case Operator.Unknown:
     default:
       return null;
   }

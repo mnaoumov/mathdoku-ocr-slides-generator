@@ -10,11 +10,13 @@ import type {
 
 import { buildAutoEliminateGroup } from '../cageConstraints.ts';
 import { CandidatesStrikethrough } from '../cellChanges/CandidatesStrikethrough.ts';
+import { Operator } from '../Puzzle.ts';
 import { ensureNonNullable } from '../typeGuards.ts';
 
 const BINARY_CELL_COUNT = 2;
 
 export class LastCellInCageStrategy implements Strategy {
+  public readonly name = 'Last cell in cage';
   public tryApply(puzzle: Puzzle): null | StrategyResult {
     const changeGroups: ChangeGroup[] = [];
     const affectedRefs: string[] = [];
@@ -23,8 +25,6 @@ export class LastCellInCageStrategy implements Strategy {
       if (cage.cells.length <= 1) {
         continue;
       }
-      const cageValue = cage.value;
-
       const unsolvedCells = cage.cells.filter((c) => !c.isSolved);
       if (unsolvedCells.length !== 1) {
         continue;
@@ -36,7 +36,7 @@ export class LastCellInCageStrategy implements Strategy {
       const validCandidates = this.findValidCandidates(
         lastCell,
         solvedValues,
-        cageValue,
+        cage.value,
         cage.operator,
         puzzle.hasOperators,
         puzzle.puzzleSize,
@@ -64,7 +64,7 @@ export class LastCellInCageStrategy implements Strategy {
 
     return {
       changeGroups,
-      note: `Last cell in cage. ${affectedRefs.join(', ')}`
+      details: affectedRefs.join(', ')
     };
   }
 
@@ -137,22 +137,21 @@ export class LastCellInCageStrategy implements Strategy {
     lastCell: Cell,
     solvedValues: readonly number[],
     cageValue: number,
-    cageOperator: string | undefined,
+    cageOperator: Operator,
     hasOperators: boolean,
     puzzleSize: number,
     cellCount: number
   ): Set<number> {
     const currentCandidates = new Set(lastCell.getCandidates());
 
-    if (hasOperators && cageOperator) {
+    if (hasOperators && cageOperator !== Operator.Unknown) {
       const computed = this.getValidForOperator(cageOperator, solvedValues, cageValue, puzzleSize);
       return new Set([...computed].filter((v) => currentCandidates.has(v)));
     }
 
-    // Unknown operator: union across all applicable operators
     const operators = cellCount === BINARY_CELL_COUNT
-      ? ['+', '-', 'x', '/']
-      : ['+', 'x'];
+      ? [Operator.Divide, Operator.Minus, Operator.Plus, Operator.Times]
+      : [Operator.Plus, Operator.Times];
     const valid = new Set<number>();
     for (const op of operators) {
       for (const v of this.getValidForOperator(op, solvedValues, cageValue, puzzleSize)) {
@@ -165,20 +164,21 @@ export class LastCellInCageStrategy implements Strategy {
   }
 
   private getValidForOperator(
-    operator: string,
+    operator: Operator,
     solvedValues: readonly number[],
     cageValue: number,
     puzzleSize: number
   ): Set<number> {
     switch (operator) {
-      case '-':
-        return this.computeForSubtraction(solvedValues, cageValue, puzzleSize);
-      case '/':
+      case Operator.Divide:
         return this.computeForDivision(solvedValues, cageValue, puzzleSize);
-      case '+':
+      case Operator.Minus:
+        return this.computeForSubtraction(solvedValues, cageValue, puzzleSize);
+      case Operator.Plus:
         return this.computeForAddition(solvedValues, cageValue, puzzleSize);
-      case 'x':
+      case Operator.Times:
         return this.computeForMultiplication(solvedValues, cageValue, puzzleSize);
+      case Operator.Unknown:
       default:
         return new Set<number>();
     }

@@ -11,13 +11,21 @@ import {
   getCellRef,
   parseOperation
 } from './parsers.ts';
+import { buildNote } from './strategies/Strategy.ts';
 import { ensureNonNullable } from './typeGuards.ts';
+
+export enum Operator {
+  Divide = '/',
+  Minus = '-',
+  Plus = '+',
+  Times = 'x',
+  Unknown = '?'
+}
 
 export interface CageRaw {
   readonly cells: readonly string[];
-  readonly label?: string;
-  readonly operator?: string;
-  readonly value?: number;
+  readonly operator: Operator;
+  readonly value: number;
 }
 
 export interface CellValueSetter {
@@ -74,7 +82,6 @@ export interface PuzzleState {
   readonly hasOperators: boolean;
   readonly puzzleSize: number;
 }
-
 interface EnterCommand {
   readonly cells: readonly Cell[];
   readonly operation: CellOperation;
@@ -83,7 +90,7 @@ interface EnterCommand {
 const CHAR_CODE_A = 65;
 
 export class Cage {
-  public readonly operator: string | undefined;
+  public readonly operator: Operator;
   public readonly value: number;
 
   public get topLeft(): Cell {
@@ -93,11 +100,10 @@ export class Cage {
   public constructor(
     public readonly id: number,
     public readonly cells: readonly Cell[],
-    public readonly label: string | undefined,
-    operator: string | undefined,
+    operator: Operator,
     value: number
   ) {
-    this.operator = operator === '*' ? 'x' : operator;
+    this.operator = operator;
     this.value = value;
   }
 
@@ -106,9 +112,9 @@ export class Cage {
   }
 
   public toString(): string {
-    const labelPart = this.label ?? '';
+    const opStr = this.operator === Operator.Unknown ? String(this.value) : `${String(this.value)}${this.operator}`;
     const cellRefs = this.cells.map(String).join(',');
-    return `Cage(${labelPart} ${cellRefs})`;
+    return `Cage(${opStr} ${cellRefs})`;
   }
 }
 
@@ -304,8 +310,7 @@ export class Puzzle {
         return ensureNonNullable(ensureNonNullable(grid[parsed.rowId - 1])[parsed.columnId - 1]);
       });
       cageCells.sort((a, b) => a.row.id - b.row.id || a.column.id - b.column.id);
-      const cageValue = raw.value ?? this.parseLabelValue(raw.label, cageId);
-      cages.push(new Cage(cageId, cageCells, raw.label, raw.operator, cageValue));
+      cages.push(new Cage(cageId, cageCells, raw.operator, raw.value));
     }
     this.cages = cages;
 
@@ -383,7 +388,7 @@ export class Puzzle {
       for (const strategy of this.strategies) {
         const result = strategy.tryApply(this);
         if (result) {
-          this.renderer.setNoteText(result.note);
+          this.renderer.setNoteText(buildNote(strategy.name, result.details));
           this.applyChanges(result.changeGroups.flatMap((g) => g.changes));
           this.commit();
           applied = true;
@@ -541,17 +546,6 @@ export class Puzzle {
     return commands;
   }
 
-  private parseLabelValue(label: string | undefined, cageId: number): number {
-    if (label === undefined) {
-      throw new Error(`Cage ${String(cageId)} has no value and no label`);
-    }
-    const parsed = parseInt(label, 10);
-    if (isNaN(parsed)) {
-      throw new Error(`Cage ${String(cageId)} label "${label}" does not contain a numeric value`);
-    }
-    return parsed;
-  }
-
   private validateCageAfterValue(cell: Cell, value: number): void {
     const cage = cell.cage;
     // Only validate when all cells in the cage would be solved
@@ -560,13 +554,12 @@ export class Puzzle {
       return;
     }
     const tuple = cage.cells.map((c) => c === cell ? value : ensureNonNullable(c.value));
-    if (this.hasOperators && cage.operator) {
+    if (this.hasOperators && cage.operator !== Operator.Unknown) {
       if (evaluateTuple(tuple, cage.operator) !== cage.value) {
         throw new Error(`${cell.ref} = ${String(value)} makes cage @${cage.topLeft.ref} invalid`);
       }
     } else {
-      // Unknown operator: error only if NO operator works
-      const validForAny = ['+', '-', 'x', '/'].some((op) => evaluateTuple(tuple, op) === cage.value);
+      const validForAny = [Operator.Divide, Operator.Minus, Operator.Plus, Operator.Times].some((op) => evaluateTuple(tuple, op) === cage.value);
       if (!validForAny) {
         throw new Error(`${cell.ref} = ${String(value)} makes cage @${cage.topLeft.ref} invalid`);
       }
@@ -612,13 +605,76 @@ export function initPuzzleSlides(options: InitPuzzleSlidesOptions): Puzzle {
   for (const strategy of options.initialStrategies) {
     const result = strategy.tryApply(puzzle);
     if (result) {
-      options.renderer.setNoteText(result.note);
+      options.renderer.setNoteText(buildNote(strategy.name, result.details));
       puzzle.applyChanges(result.changeGroups.flatMap((g) => g.changes));
       puzzle.commit();
     }
   }
   puzzle.tryApplyAutomatedStrategies();
   return puzzle;
+}
+
+export function parsePuzzleJson(data: unknown): PuzzleJson {
+  if (typeof data !== 'object' || data === null) {
+    throw new Error('Puzzle data must be an object');
+  }
+  const obj = data as Record<string, unknown>;
+  if (typeof obj['puzzleSize'] !== 'number') {
+    throw new Error('puzzleSize must be a number');
+  }
+  if (!Array.isArray(obj['cages'])) {
+    throw new Error('cages must be an array');
+  }
+  const cages = (obj['cages'] as unknown[]).map((raw, i) => validateCageRaw(raw, i));
+  return {
+    cages,
+    puzzleSize: obj['puzzleSize'],
+    ...(typeof obj['hasOperators'] === 'boolean' && { hasOperators: obj['hasOperators'] }),
+    ...(typeof obj['meta'] === 'string' && { meta: obj['meta'] }),
+    ...(typeof obj['title'] === 'string' && { title: obj['title'] })
+  };
+}
+
+export function parsePuzzleState(data: unknown): PuzzleState {
+  const json = parsePuzzleJson(data);
+  const obj = data as Record<string, unknown>;
+  if (typeof obj['hasOperators'] !== 'boolean') {
+    throw new Error('hasOperators must be a boolean');
+  }
+  return {
+    cages: json.cages,
+    hasOperators: obj['hasOperators'],
+    puzzleSize: json.puzzleSize
+  };
+}
+
+const VALID_OPERATORS = new Set<string>([Operator.Divide, Operator.Minus, Operator.Plus, Operator.Times, Operator.Unknown]);
+
+function validateCageRaw(data: unknown, index: number): CageRaw {
+  if (typeof data !== 'object' || data === null) {
+    throw new Error(`cages[${String(index)}] must be an object`);
+  }
+  const obj = data as Record<string, unknown>;
+  if (!Array.isArray(obj['cells']) || obj['cells'].length === 0) {
+    throw new Error(`cages[${String(index)}].cells must be a non-empty array`);
+  }
+  if (typeof obj['value'] !== 'number') {
+    throw new Error(`cages[${String(index)}].value must be a number`);
+  }
+  const rawOp = obj['operator'];
+  let operator: Operator;
+  if (rawOp === undefined) {
+    operator = Operator.Unknown;
+  } else if (typeof rawOp === 'string' && VALID_OPERATORS.has(rawOp)) {
+    operator = rawOp as Operator;
+  } else {
+    throw new Error(`cages[${String(index)}].operator must be one of +, -, x, /`);
+  }
+  return {
+    cells: obj['cells'] as string[],
+    operator,
+    value: obj['value']
+  };
 }
 
 // Re-export parseCellRef for use outside

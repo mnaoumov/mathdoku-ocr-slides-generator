@@ -5,6 +5,7 @@ import {
 } from 'vitest';
 
 import { CandidatesStrikethrough } from '../../src/cellChanges/CandidatesStrikethrough.ts';
+import { Operator } from '../../src/Puzzle.ts';
 import { DoesNotDivideProductStrategy } from '../../src/strategies/DoesNotDivideProductStrategy.ts';
 import { ensureNonNullable } from '../../src/typeGuards.ts';
 import {
@@ -17,7 +18,7 @@ describe('DoesNotDivideProductStrategy', () => {
 
   it('eliminates candidates that do not divide the cage value', () => {
     const cages = fillRemainingCells([
-      { cells: ['A1', 'B1', 'A2'], operator: 'x', value: 20 }
+      { cells: ['A1', 'B1', 'A2'], operator: Operator.Times, value: 20 }
     ], 6);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 6 });
     for (const cell of puzzle.cells) {
@@ -41,9 +42,9 @@ describe('DoesNotDivideProductStrategy', () => {
     expect(eliminatedValues).not.toContain(5);
   });
 
-  it('uses set notation for multiple eliminated values', () => {
+  it('uses dash-prefix notation for eliminated values', () => {
     const cages = fillRemainingCells([
-      { cells: ['A1', 'B1', 'A2'], operator: 'x', value: 20 }
+      { cells: ['A1', 'B1', 'A2'], operator: Operator.Times, value: 20 }
     ], 6);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 6 });
     for (const cell of puzzle.cells) {
@@ -52,14 +53,14 @@ describe('DoesNotDivideProductStrategy', () => {
 
     const result = strategy.tryApply(puzzle);
     expect(result).not.toBeNull();
-    const { note } = ensureNonNullable(result);
+    const { details } = ensureNonNullable(result);
 
-    expect(note).toContain('{36} don\'t divide 20');
+    expect(details).toContain('@A1 -36');
   });
 
-  it('deduplicates eliminated values across cells in the same cage', () => {
+  it('includes cage ref in details', () => {
     const cages = fillRemainingCells([
-      { cells: ['A1', 'B1', 'A2'], operator: 'x', value: 20 }
+      { cells: ['A1', 'B1', 'A2'], operator: Operator.Times, value: 20 }
     ], 6);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 6 });
     for (const cell of puzzle.cells) {
@@ -68,32 +69,14 @@ describe('DoesNotDivideProductStrategy', () => {
 
     const result = strategy.tryApply(puzzle);
     expect(result).not.toBeNull();
-    const { note } = ensureNonNullable(result);
+    const { details } = ensureNonNullable(result);
 
-    const matches = note.match(/doesn't divide|don't divide/g);
-    expect(ensureNonNullable(matches).length).toBe(1);
-  });
-
-  it('includes note prefix and cage ref', () => {
-    const cages = fillRemainingCells([
-      { cells: ['A1', 'B1', 'A2'], operator: 'x', value: 20 }
-    ], 6);
-    const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 6 });
-    for (const cell of puzzle.cells) {
-      cell.setCandidates([1, 2, 3, 4, 5, 6]);
-    }
-
-    const result = strategy.tryApply(puzzle);
-    expect(result).not.toBeNull();
-    const { note } = ensureNonNullable(result);
-
-    expect(note).toContain('Doesn\'t divide product.');
-    expect(note).toContain('@A1:');
+    expect(details).toContain('@A1 ');
   });
 
   it('returns null for addition cages', () => {
     const cages = fillRemainingCells([
-      { cells: ['A1', 'B1'], operator: '+', value: 3 }
+      { cells: ['A1', 'B1'], operator: Operator.Plus, value: 3 }
     ], 6);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 6 });
     for (const cell of puzzle.cells) {
@@ -105,7 +88,7 @@ describe('DoesNotDivideProductStrategy', () => {
 
   it('returns null when all candidates divide the cage value', () => {
     const cages = fillRemainingCells([
-      { cells: ['A1', 'B1'], operator: 'x', value: 6 }
+      { cells: ['A1', 'B1'], operator: Operator.Times, value: 6 }
     ], 6);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 6 });
     puzzle.getCell('A1').setCandidates([1, 2, 3, 6]);

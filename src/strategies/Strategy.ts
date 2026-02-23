@@ -7,10 +7,15 @@ export interface ChangeGroup {
 }
 
 export interface Strategy {
+  readonly name: string;
   tryApply(puzzle: Puzzle): null | StrategyResult;
 }
 
 export interface StrategyResult {
   readonly changeGroups: readonly ChangeGroup[];
-  readonly note: string;
+  readonly details?: string;
+}
+
+export function buildNote(name: string, details?: string): string {
+  return details === undefined ? name : `${name}: ${details}`;
 }

@@ -9,10 +9,10 @@ import { NakedSetStrategy } from './NakedSetStrategy.ts';
 import { NoCageCombinationStrategy } from './NoCageCombinationStrategy.ts';
 import { SingleCandidateStrategy } from './SingleCandidateStrategy.ts';
 import { SingleCellCageStrategy } from './SingleCellCageStrategy.ts';
-import { TooBigInProductStrategy } from './TooBigInProductStrategy.ts';
-import { TooBigInSumStrategy } from './TooBigInSumStrategy.ts';
-import { TooSmallInProductStrategy } from './TooSmallInProductStrategy.ts';
-import { TooSmallInSumStrategy } from './TooSmallInSumStrategy.ts';
+import { TooBigForProductStrategy } from './TooBigForProductStrategy.ts';
+import { TooBigForSumStrategy } from './TooBigForSumStrategy.ts';
+import { TooSmallForProductStrategy } from './TooSmallForProductStrategy.ts';
+import { TooSmallForSumStrategy } from './TooSmallForSumStrategy.ts';
 import { UniqueCageMultisetStrategy } from './UniqueCageMultisetStrategy.ts';
 
 const MIN_NAKED_SET_SIZE = 2;
@@ -23,10 +23,10 @@ export function createInitialStrategies(): Strategy[] {
     new SingleCellCageStrategy(),
     new UniqueCageMultisetStrategy(),
     new DoesNotDivideProductStrategy(),
-    new TooSmallInSumStrategy(),
-    new TooBigInSumStrategy(),
-    new TooSmallInProductStrategy(),
-    new TooBigInProductStrategy()
+    new TooSmallForSumStrategy(),
+    new TooBigForSumStrategy(),
+    new TooSmallForProductStrategy(),
+    new TooBigForProductStrategy()
   ];
 }
 

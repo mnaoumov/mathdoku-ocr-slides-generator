@@ -10,6 +10,7 @@ import type {
 } from './Strategy.ts';
 
 import { CandidatesStrikethrough } from '../cellChanges/CandidatesStrikethrough.ts';
+import { Operator } from '../Puzzle.ts';
 import { ensureNonNullable } from '../typeGuards.ts';
 import { deduceOperator } from './cageOperationBounds.ts';
 
@@ -24,35 +25,44 @@ export interface CageContext {
   readonly solvedSum: number;
 }
 
+export interface CellElimination {
+  readonly cell: Cell;
+  readonly values: readonly number[];
+}
+
+interface CageGroupResult {
+  readonly eliminations: readonly CellElimination[];
+  readonly group: ChangeGroup;
+}
+
 export abstract class CageOperationStrategy implements Strategy {
-  protected abstract readonly notePrefix: string;
+  public abstract readonly name: string;
 
   public tryApply(puzzle: Puzzle): null | StrategyResult {
     const allGroups: ChangeGroup[] = [];
-    const cageNoteEntries: string[] = [];
+    const allNoteEntries: string[] = [];
 
     for (const cage of puzzle.cages) {
       if (cage.cells.length <= 1) {
         continue;
       }
 
-      const cageValue = cage.value;
-
-      const effectiveOperator = puzzle.hasOperators && cage.operator
+      const effectiveOperator = puzzle.hasOperators && cage.operator !== Operator.Unknown
         ? cage.operator
-        : deduceOperator(cageValue, cage.cells.length, puzzle.puzzleSize);
+        : deduceOperator(cage.value, cage.cells.length, puzzle.puzzleSize);
 
       if (!this.handlesOperator(effectiveOperator)) {
         continue;
       }
 
-      const group = this.buildCageGroup(cage, cageValue, puzzle.puzzleSize);
-      if (!group) {
+      const result = this.buildCageGroup(cage, cage.value, puzzle.puzzleSize);
+      if (!result) {
         continue;
       }
 
-      allGroups.push(group);
-      cageNoteEntries.push(`@${cage.topLeft.ref}: ${group.reason}`);
+      allGroups.push(result.group);
+      const entries = this.formatNoteEntries(cage, result.eliminations);
+      allNoteEntries.push(...entries);
     }
 
     if (allGroups.length === 0) {
@@ -61,8 +71,40 @@ export abstract class CageOperationStrategy implements Strategy {
 
     return {
       changeGroups: allGroups,
-      note: `${this.notePrefix}. ${cageNoteEntries.join(', ')}`
+      details: allNoteEntries.join(', ')
     };
+  }
+
+  protected formatNoteEntries(cage: Cage, eliminations: readonly CellElimination[]): string[] {
+    const byValue = new Map<number, Cell[]>();
+    for (const { cell, values } of eliminations) {
+      for (const v of values) {
+        let cells = byValue.get(v);
+        if (!cells) {
+          cells = [];
+          byValue.set(v, cells);
+        }
+        cells.push(cell);
+      }
+    }
+
+    const unsolvedCount = cage.cells.filter((c) => !c.isSolved).length;
+    const cageRef = `@${cage.topLeft.ref}`;
+    const entries: string[] = [];
+    for (const [value, cells] of [...byValue].sort(([a], [b]) => a - b)) {
+      if (cells.length >= unsolvedCount) {
+        entries.push(`${cageRef} -${String(value)}`);
+      } else if (cells.length === 1 && ensureNonNullable(cells[0]).ref === cage.topLeft.ref) {
+        entries.push(`${cageRef} -${String(value)}`);
+      } else if (cells.length === 1) {
+        entries.push(`${cageRef} ${ensureNonNullable(cells[0]).ref} -${String(value)}`);
+      } else {
+        const cellRefs = cells.map((c) => c.ref).join(' ');
+        entries.push(`${cageRef} (${cellRefs}) -${String(value)}`);
+      }
+    }
+
+    return entries;
   }
 
   protected abstract formatReason(eliminatedValues: readonly number[], cageValue: number): string;
@@ -73,7 +115,7 @@ export abstract class CageOperationStrategy implements Strategy {
       : `{${values.join('')}}`;
   }
 
-  protected abstract handlesOperator(operator: string | undefined): boolean;
+  protected abstract handlesOperator(operator: Operator): boolean;
 
   protected abstract shouldEliminate(value: number, context: CageContext): boolean;
 
@@ -81,9 +123,10 @@ export abstract class CageOperationStrategy implements Strategy {
     cage: Cage,
     cageValue: number,
     puzzleSize: number
-  ): ChangeGroup | null {
+  ): CageGroupResult | null {
     const allValues = new Set<number>();
     const changes: CandidatesStrikethrough[] = [];
+    const eliminations: CellElimination[] = [];
 
     for (const cell of cage.cells) {
       if (cell.isSolved) {
@@ -113,6 +156,7 @@ export abstract class CageOperationStrategy implements Strategy {
 
       if (eliminated.length > 0) {
         changes.push(new CandidatesStrikethrough(cell, eliminated));
+        eliminations.push({ cell, values: eliminated });
       }
     }
 
@@ -122,8 +166,11 @@ export abstract class CageOperationStrategy implements Strategy {
 
     const sortedValues = [...allValues].sort((a, b) => a - b);
     return {
-      changes,
-      reason: this.formatReason(sortedValues, cageValue)
+      eliminations,
+      group: {
+        changes,
+        reason: this.formatReason(sortedValues, cageValue)
+      }
     };
   }
 }

@@ -4,18 +4,19 @@ import {
   it
 } from 'vitest';
 
-import { TooBigInProductStrategy } from '../../src/strategies/TooBigInProductStrategy.ts';
+import { Operator } from '../../src/Puzzle.ts';
+import { TooBigForProductStrategy } from '../../src/strategies/TooBigForProductStrategy.ts';
 import {
   createTestPuzzle,
   fillRemainingCells
 } from '../puzzleTestHelper.ts';
 
-describe('TooBigInProductStrategy', () => {
-  const strategy = new TooBigInProductStrategy();
+describe('TooBigForProductStrategy', () => {
+  const strategy = new TooBigForProductStrategy();
 
   it('returns null for binary multiplication cages (never fires for 2-cell)', () => {
     const cages = fillRemainingCells([
-      { cells: ['A1', 'B1'], operator: 'x', value: 6 }
+      { cells: ['A1', 'B1'], operator: Operator.Times, value: 6 }
     ], 6);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 6 });
     for (const cell of puzzle.cells) {
@@ -27,7 +28,7 @@ describe('TooBigInProductStrategy', () => {
 
   it('returns null for addition cages', () => {
     const cages = fillRemainingCells([
-      { cells: ['A1', 'B1', 'A2'], operator: '+', value: 8 }
+      { cells: ['A1', 'B1', 'A2'], operator: Operator.Plus, value: 8 }
     ], 6);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 6 });
     for (const cell of puzzle.cells) {
@@ -40,7 +41,7 @@ describe('TooBigInProductStrategy', () => {
   it('returns null when no candidates have quotients below min product', () => {
     // Cage 30x with 3 cells in 6x6: all quotients are within achievable range
     const cages = fillRemainingCells([
-      { cells: ['A1', 'B1', 'A2'], operator: 'x', value: 30 }
+      { cells: ['A1', 'B1', 'A2'], operator: Operator.Times, value: 30 }
     ], 6);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 6 });
     for (const cell of puzzle.cells) {

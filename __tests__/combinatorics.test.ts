@@ -9,55 +9,55 @@ import {
   generateSubsets,
   GridBoundaries
 } from '../src/combinatorics.ts';
+import { Operator } from '../src/Puzzle.ts';
 
 describe('evaluateTuple', () => {
   it('returns null for empty tuple', () => {
-    expect(evaluateTuple([], '+')).toBeNull();
+    expect(evaluateTuple([], Operator.Plus)).toBeNull();
   });
 
   it('returns the value for single-element tuple', () => {
-    expect(evaluateTuple([5], '+')).toBe(5);
+    expect(evaluateTuple([5], Operator.Plus)).toBe(5);
   });
 
   it('evaluates addition', () => {
-    expect(evaluateTuple([2, 3], '+')).toBe(5);
-    expect(evaluateTuple([1, 2, 3], '+')).toBe(6);
+    expect(evaluateTuple([2, 3], Operator.Plus)).toBe(5);
+    expect(evaluateTuple([1, 2, 3], Operator.Plus)).toBe(6);
   });
 
   it('evaluates subtraction (absolute difference)', () => {
-    expect(evaluateTuple([5, 3], '-')).toBe(2);
-    expect(evaluateTuple([3, 5], '-')).toBe(2);
+    expect(evaluateTuple([5, 3], Operator.Minus)).toBe(2);
+    expect(evaluateTuple([3, 5], Operator.Minus)).toBe(2);
   });
 
   it('returns null for subtraction with more than 2 elements', () => {
-    expect(evaluateTuple([1, 2, 3], '-')).toBeNull();
+    expect(evaluateTuple([1, 2, 3], Operator.Minus)).toBeNull();
   });
 
   it('evaluates multiplication', () => {
-    expect(evaluateTuple([2, 3], 'x')).toBe(6);
-    expect(evaluateTuple([2, 3], '*')).toBe(6);
-    expect(evaluateTuple([1, 2, 3], 'x')).toBe(6);
+    expect(evaluateTuple([2, 3], Operator.Times)).toBe(6);
+    expect(evaluateTuple([1, 2, 3], Operator.Times)).toBe(6);
   });
 
   it('evaluates division', () => {
-    expect(evaluateTuple([6, 3], '/')).toBe(2);
-    expect(evaluateTuple([3, 6], '/')).toBe(2);
+    expect(evaluateTuple([6, 3], Operator.Divide)).toBe(2);
+    expect(evaluateTuple([3, 6], Operator.Divide)).toBe(2);
   });
 
   it('returns null for non-integer division', () => {
-    expect(evaluateTuple([5, 3], '/')).toBeNull();
+    expect(evaluateTuple([5, 3], Operator.Divide)).toBeNull();
   });
 
   it('returns null for division with more than 2 elements', () => {
-    expect(evaluateTuple([1, 2, 3], '/')).toBeNull();
+    expect(evaluateTuple([1, 2, 3], Operator.Divide)).toBeNull();
   });
 
   it('returns null for division by zero', () => {
-    expect(evaluateTuple([0, 5], '/')).toBeNull();
+    expect(evaluateTuple([0, 5], Operator.Divide)).toBeNull();
   });
 
   it('returns null for unknown operator', () => {
-    expect(evaluateTuple([1, 2], '%')).toBeNull();
+    expect(evaluateTuple([1, 2], Operator.Unknown)).toBeNull();
   });
 });
 
@@ -86,8 +86,8 @@ describe('generateSubsets', () => {
 describe('GridBoundaries', () => {
   // 2x2 grid: cage 1 = [A1, A2] (col 1), cage 2 = [B1, B2] (col 2)
   const cages = [
-    { cells: ['A1', 'A2'], value: 3 },
-    { cells: ['B1', 'B2'], value: 3 }
+    { cells: ['A1', 'A2'], operator: Operator.Unknown, value: 3 },
+    { cells: ['B1', 'B2'], operator: Operator.Unknown, value: 3 }
   ];
   const boundaries = new GridBoundaries(cages, 2);
 

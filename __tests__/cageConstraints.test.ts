@@ -8,42 +8,43 @@ import {
   collectCageTuples,
   computeValidCageTuples
 } from '../src/cageConstraints.ts';
+import { Operator } from '../src/Puzzle.ts';
 import { createTestPuzzle } from './puzzleTestHelper.ts';
 
 describe('computeValidCageTuples', () => {
   it('computes addition tuples for a 2-cell cage', () => {
     const cages = [
-      { cells: ['A1', 'B1'], operator: '+', value: 3 },
-      { cells: ['A2', 'B2'], operator: '+', value: 3 }
+      { cells: ['A1', 'B1'], operator: Operator.Plus, value: 3 },
+      { cells: ['A2', 'B2'], operator: Operator.Plus, value: 3 }
     ];
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 2 });
     const cage = puzzle.getCage(1);
-    const tuples = computeValidCageTuples({ cells: cage.cells, operator: '+', puzzleSize: 2, value: 3 });
+    const tuples = computeValidCageTuples({ cells: cage.cells, operator: Operator.Plus, puzzleSize: 2, value: 3 });
     expect(tuples).toEqual([[1, 2], [2, 1]]);
   });
 
   it('computes multiplication tuples for a 2-cell cage', () => {
     const cages = [
-      { cells: ['A1', 'B1'], operator: 'x', value: 6 },
-      { cells: ['A2', 'B2'], operator: 'x', value: 6 },
-      { cells: ['A3', 'B3'], operator: '+', value: 5 },
-      { cells: ['C1', 'C2', 'C3'], operator: '+', value: 6 }
+      { cells: ['A1', 'B1'], operator: Operator.Times, value: 6 },
+      { cells: ['A2', 'B2'], operator: Operator.Times, value: 6 },
+      { cells: ['A3', 'B3'], operator: Operator.Plus, value: 5 },
+      { cells: ['C1', 'C2', 'C3'], operator: Operator.Plus, value: 6 }
     ];
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 3 });
     const cage = puzzle.getCage(1);
-    const tuples = computeValidCageTuples({ cells: cage.cells, operator: 'x', puzzleSize: 3, value: 6 });
+    const tuples = computeValidCageTuples({ cells: cage.cells, operator: Operator.Times, puzzleSize: 3, value: 6 });
     expect(tuples).toEqual([[2, 3], [3, 2]]);
   });
 
   it('respects row/column constraints between cells', () => {
     const cages = [
-      { cells: ['A1', 'A2'], operator: '+', value: 3 },
-      { cells: ['B1', 'B2'], operator: '+', value: 3 }
+      { cells: ['A1', 'A2'], operator: Operator.Plus, value: 3 },
+      { cells: ['B1', 'B2'], operator: Operator.Plus, value: 3 }
     ];
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 2 });
     const cage = puzzle.getCage(1);
     // A1 and A2 are in the same column, so they can't have the same value
-    const tuples = computeValidCageTuples({ cells: cage.cells, operator: '+', puzzleSize: 2, value: 2 });
+    const tuples = computeValidCageTuples({ cells: cage.cells, operator: Operator.Plus, puzzleSize: 2, value: 2 });
     // [1,1] would violate column constraint
     expect(tuples).toEqual([]);
   });
@@ -52,8 +53,8 @@ describe('computeValidCageTuples', () => {
 describe('collectCageTuples', () => {
   it('uses specified operator when hasOperators is true', () => {
     const cages = [
-      { cells: ['A1', 'B1'], operator: '+', value: 3 },
-      { cells: ['A2', 'B2'], operator: '+', value: 3 }
+      { cells: ['A1', 'B1'], operator: Operator.Plus, value: 3 },
+      { cells: ['A2', 'B2'], operator: Operator.Plus, value: 3 }
     ];
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 2 });
     const cage = puzzle.getCage(1);
@@ -63,8 +64,8 @@ describe('collectCageTuples', () => {
 
   it('tries all operators when hasOperators is false', () => {
     const cages = [
-      { cells: ['A1', 'B1'], value: 3 },
-      { cells: ['A2', 'B2'], value: 3 }
+      { cells: ['A1', 'B1'], operator: Operator.Unknown, value: 3 },
+      { cells: ['A2', 'B2'], operator: Operator.Unknown, value: 3 }
     ];
     const puzzle = createTestPuzzle({ cages, hasOperators: false, puzzleSize: 2 });
     const cage = puzzle.getCage(1);
@@ -77,8 +78,8 @@ describe('collectCageTuples', () => {
 
   it('deduplicates tuples across operators', () => {
     const cages = [
-      { cells: ['A1', 'B1'], value: 2 },
-      { cells: ['A2', 'B2'], value: 2 }
+      { cells: ['A1', 'B1'], operator: Operator.Unknown, value: 2 },
+      { cells: ['A2', 'B2'], operator: Operator.Unknown, value: 2 }
     ];
     const puzzle = createTestPuzzle({ cages, hasOperators: false, puzzleSize: 2 });
     const cage = puzzle.getCage(1);

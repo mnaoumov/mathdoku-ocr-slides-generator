@@ -5,6 +5,7 @@ import {
 } from 'vitest';
 
 import { ValueChange } from '../../src/cellChanges/ValueChange.ts';
+import { Operator } from '../../src/Puzzle.ts';
 import { DeterminedByCageStrategy } from '../../src/strategies/DeterminedByCageStrategy.ts';
 import { ensureNonNullable } from '../../src/typeGuards.ts';
 import {
@@ -20,7 +21,7 @@ describe('DeterminedByCageStrategy', () => {
     // A2 and B2 have candidates {4, 6} — naked pair in row 2
     // A1 must be 72 / (4*6) = 3
     const cages = fillRemainingCells([
-      { cells: ['A1', 'A2', 'B2'], operator: 'x', value: 72 }
+      { cells: ['A1', 'A2', 'B2'], operator: Operator.Times, value: 72 }
     ], 6);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 6 });
     puzzle.getCell('A1').setCandidates([3, 4, 6]);
@@ -34,7 +35,7 @@ describe('DeterminedByCageStrategy', () => {
 
     const valueChanges = changes.filter((c) => c instanceof ValueChange);
     expect(valueChanges.some((c) => c.cell.ref === 'A1' && c.value === 3)).toBe(true);
-    expect(r.note).toBe('Determined by cage. A1');
+    expect(r.details).toBe('A1');
   });
 
   it('determines cell value with addition operator', () => {
@@ -42,7 +43,7 @@ describe('DeterminedByCageStrategy', () => {
     // A2 and B2 have candidates {3, 4} — naked pair in row 2, sum = 7
     // A1 must be 10 - 7 = 3
     const cages = fillRemainingCells([
-      { cells: ['A1', 'A2', 'B2'], operator: '+', value: 10 }
+      { cells: ['A1', 'A2', 'B2'], operator: Operator.Plus, value: 10 }
     ], 6);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 6 });
     puzzle.getCell('A1').setCandidates([1, 2, 3, 4, 5, 6]);
@@ -63,7 +64,7 @@ describe('DeterminedByCageStrategy', () => {
     // A3, B3 in row 3: candidates {3, 4} — naked pair, product = 12
     // A1 = 120 / (2 * 12) = 5
     const cages = fillRemainingCells([
-      { cells: ['A1', 'A2', 'B2', 'A3', 'B3'], operator: 'x', value: 120 }
+      { cells: ['A1', 'A2', 'B2', 'A3', 'B3'], operator: Operator.Times, value: 120 }
     ], 6);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 6 });
     puzzle.getCell('A1').setCandidates([1, 2, 3, 4, 5, 6]);
@@ -83,7 +84,7 @@ describe('DeterminedByCageStrategy', () => {
   it('returns null when other cells cannot be partitioned into naked sets', () => {
     // No naked set: A2 and B2 have different-sized candidate sets
     const cages = fillRemainingCells([
-      { cells: ['A1', 'A2', 'B2'], operator: 'x', value: 72 }
+      { cells: ['A1', 'A2', 'B2'], operator: Operator.Times, value: 72 }
     ], 6);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 6 });
     puzzle.getCell('A1').setCandidates([3, 4, 6]);
@@ -96,7 +97,7 @@ describe('DeterminedByCageStrategy', () => {
   it('returns null when target value is not in candidates', () => {
     // A1 = 72 / (4*6) = 3, but A1 doesn't have candidate 3
     const cages = fillRemainingCells([
-      { cells: ['A1', 'A2', 'B2'], operator: 'x', value: 72 }
+      { cells: ['A1', 'A2', 'B2'], operator: Operator.Times, value: 72 }
     ], 6);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 6 });
     puzzle.getCell('A1').setCandidates([4, 6]);
@@ -108,7 +109,7 @@ describe('DeterminedByCageStrategy', () => {
 
   it('skips subtraction and division operators', () => {
     const cages = fillRemainingCells([
-      { cells: ['A1', 'B1'], operator: '-', value: 1 }
+      { cells: ['A1', 'B1'], operator: Operator.Minus, value: 1 }
     ], 4);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 4 });
     puzzle.getCell('A1').setCandidates([1, 2]);

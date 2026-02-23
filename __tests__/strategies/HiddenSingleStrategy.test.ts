@@ -5,6 +5,7 @@ import {
 } from 'vitest';
 
 import { ValueChange } from '../../src/cellChanges/ValueChange.ts';
+import { Operator } from '../../src/Puzzle.ts';
 import { HiddenSingleStrategy } from '../../src/strategies/HiddenSingleStrategy.ts';
 import { ensureNonNullable } from '../../src/typeGuards.ts';
 import { createTestPuzzle } from '../puzzleTestHelper.ts';
@@ -14,8 +15,8 @@ describe('HiddenSingleStrategy', () => {
 
   it('returns null when no hidden singles exist', () => {
     const cages = [
-      { cells: ['A1', 'B1'], operator: '+', value: 3 },
-      { cells: ['A2', 'B2'], operator: '+', value: 3 }
+      { cells: ['A1', 'B1'], operator: Operator.Plus, value: 3 },
+      { cells: ['A2', 'B2'], operator: Operator.Plus, value: 3 }
     ];
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 2 });
     for (const cell of puzzle.cells) {
@@ -26,8 +27,8 @@ describe('HiddenSingleStrategy', () => {
 
   it('finds hidden single when digit appears in only one cell in a house', () => {
     const cages = [
-      { cells: ['A1', 'B1'], operator: '+', value: 3 },
-      { cells: ['A2', 'B2'], operator: '+', value: 3 }
+      { cells: ['A1', 'B1'], operator: Operator.Plus, value: 3 },
+      { cells: ['A2', 'B2'], operator: Operator.Plus, value: 3 }
     ];
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 2 });
     puzzle.getCell('A1').setCandidates([1, 2]);
@@ -41,14 +42,13 @@ describe('HiddenSingleStrategy', () => {
     const changes = r.changeGroups.flatMap((g) => g.changes);
     const valueChanges = changes.filter((c) => c instanceof ValueChange);
     expect(valueChanges.some((c) => c.cell.ref === 'A1' && c.value === 1)).toBe(true);
-    expect(r.note).toContain('Hidden single.');
-    expect(r.note).toContain('A1');
+    expect(r.details).toContain('A1');
   });
 
   it('skips solved cells', () => {
     const cages = [
-      { cells: ['A1', 'B1'], operator: '+', value: 3 },
-      { cells: ['A2', 'B2'], operator: '+', value: 3 }
+      { cells: ['A1', 'B1'], operator: Operator.Plus, value: 3 },
+      { cells: ['A2', 'B2'], operator: Operator.Plus, value: 3 }
     ];
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 2 });
     puzzle.getCell('A1').setValue(1);
