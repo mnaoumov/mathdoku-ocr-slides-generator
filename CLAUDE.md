@@ -25,9 +25,10 @@ Generate Google Slides presentations for Mathdoku puzzles that can be solved int
 - `assets/template-960x540.pptx` - Blank PPTX with 960×540 pt page size (workaround for API bug)
 - `src/Puzzle.ts` - Business logic: Puzzle class, PuzzleRenderer/Strategy interfaces, `initPuzzleSlides()`, types (zero Google Slides dependencies)
 - `src/View.ts` - Google Slides layer: SlidesRenderer class, layout profiles, grid rendering, importPuzzle, global entry points
-- `src/strategies/` - Strategy implementations: cage operation strategies (TooSmallInSum, TooBigInSum, DoesNotDivideProduct, TooSmallInProduct, TooBigInProduct), solving strategies (SingleCandidate, HiddenSingle, NakedSet, LastCellInCage, DeterminedByCage, NoCageCombination), init strategies (FillAllCandidates, SingleCellCage, UniqueCageMultiset)
+- `src/strategies/` - Strategy implementations: cage operation strategies (TooSmallForSum, TooBigForSum, DoesNotDivideProduct, TooSmallForProduct, TooBigForProduct), solving strategies (SingleCandidate, HiddenSingle, NakedSet, LastCellInCage, DeterminedByCage, NoCageCombination), init strategies (FillAllCandidates, SingleCellCage, UniqueCageMultiset)
 - `src/cellChanges/` - CellChange subclasses (CandidatesChange, CandidatesStrikethrough, CellClearance, ValueChange)
 - `dist/EnterDialog.html` - Modal dialog UI for Enter command
+- `dist/ProgressDialog.html` - Modal progress dialog for Init and strategy application (chunked execution with cancel/revert)
 - `ocr/ocr_mathdoku.py` - OCR: uses OpenCV + Tesseract to extract puzzle from screenshot
 - `tests/fixtures/` - YAML specs and reference images for various puzzles
 
@@ -75,6 +76,27 @@ Every action records its description in slide speaker notes for an audit trail:
 
 Note text is set via `PuzzleRenderer.setNoteText()` from business logic (`Puzzle.enter()`, `Puzzle.tryApplyAutomatedStrategies()`, `initPuzzleSlides()`), not from View callers.
 
+### Progress Dialog (Chunked Execution)
+
+Init and Apply Automated Strategies use a modal progress dialog (`dist/ProgressDialog.html`) for real-time feedback and cancellation support. Since SlidesApp is single-threaded, progress is achieved via client-driven chunked execution: the dialog calls the server once per strategy step via `google.script.run`, updates the UI between calls.
+
+**Server functions** (exported from `View.ts`):
+- `initGridSetup(puzzleJsonStr)` — creates grid layout, saves mathdokuState (everything `importPuzzle` does except strategy application)
+- `applyOneStep()` — rebuilds puzzle from slide, tries one strategy, returns `StepResult { applied, message? }`. Tracks initial strategy index in cache so each initial strategy is tried exactly once; after exhausting them, switches to automated strategies.
+- `getRevertState()` — returns `{ slideCount, lastSlideNotes }` for revert baseline
+- `revertOperation(targetSlideCount, savedNotes)` — deletes slides after target count, restores notes
+- `finishInit()` — updates menu and selects last slide after init completes
+- `submitEnterCommand(input)` — applies enter + commit, then opens ProgressDialog for strategies
+
+**`tryApplyOneStrategyStep(strategies)`** on Puzzle class: iterates provided strategies, applies first match, returns `StepResult`. Used by `applyOneStep()` for single-step execution.
+
+**Initial vs automated strategies:** `applyOneStep()` handles both phases internally. It uses `CacheService` to track which initial strategy to try next (set by `initGridSetup`). Each initial strategy is tried exactly once in order; those that don't fire are skipped. Once all initial strategies are exhausted, automated strategies take over. The dialog just calls `applyOneStep()` in a loop — no mode parameter needed.
+
+**Flows:**
+- **Init**: validates puzzle data → stores JSON in CacheService → opens ProgressDialog → dialog calls `initGridSetup()` → loops `applyOneStep()` → calls `finishInit()`
+- **Enter**: EnterDialog calls `submitEnterCommand(cmd)` → enter + commit → opens ProgressDialog → loops `applyOneStep()`
+- **Cancel**: dialog calls `revertOperation()` to delete added slides and restore notes
+
 ### Last Slide Guard
 
 All commands (`enter()`, `tryApplyAutomatedStrategies()`) check `PuzzleRenderer.ensureLastSlide()` before proceeding. If the user is not on the last slide, an alert is shown and the command is aborted. This prevents accidental modifications to intermediate slides. The `addChanges()` dialog opener also checks via the View-layer `ensureLastSlideSelected()`.
@@ -102,9 +124,9 @@ Note: `selectAsCurrentPage()` is the only Google Slides API for navigating to a 
 
 This is enforced structurally: `StrategyResult.changeGroups` is an array of `ChangeGroup`, where each group has `changes: CellChange[]` and `reason: string`. Every change must belong to a group with an explanation. Consumers flatten groups via `changeGroups.flatMap(g => g.changes)`.
 
-### Operator normalization
+### Operator enum
 
-Cage operators are normalized to `'x'` (not `'*'`) in the `Cage` constructor. Strategy code should only check for `'x'`, never `'*'`. The `combinatorics.ts` and `View.ts` files retain defensive `'*'` handling for external input.
+Cage operators use the `Operator` string enum (in `Puzzle.ts`): `Plus = '+'`, `Minus = '-'`, `Times = 'x'`, `Divide = '/'`, `Unknown = '?'`. The OCR normalizes all Unicode variants (×, ÷, etc.) to these four known operators before writing YAML. `Operator.Unknown` is an internal sentinel for cages without a specified operator (puzzles with `hasOperators: false`); it never appears in YAML. The `'?'` value may appear in serialized `PuzzleState` JSON and is accepted on deserialization. `CageRaw.operator` and `Cage.operator` are always `Operator` (never `undefined`).
 
 - Generate slides: `npm run makeMathdokuSlides tests/fixtures/Blog15.yaml`
 - Run OCR: `npm run ocrMathdoku screenshot.png`

@@ -16,6 +16,7 @@
     "verbatimModuleSyntax": true
   },
   "include": [
+    "__tests__/**/*.ts",
     "eslint.config.mts",
     "scripts/**/*.ts",
     "src/**/*.ts",
