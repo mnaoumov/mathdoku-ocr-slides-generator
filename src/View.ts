@@ -6,7 +6,8 @@ import type {
   CageRaw,
   PuzzleJson,
   PuzzleRenderer,
-  PuzzleState
+  PuzzleState,
+  StepResult
 } from './Puzzle.ts';
 
 import { GridBoundaries } from './combinatorics.ts';
@@ -16,6 +17,9 @@ import {
 } from './parsers.ts';
 import {
   initPuzzleSlides,
+  Operator,
+  parsePuzzleJson,
+  parsePuzzleState,
   Puzzle
 } from './Puzzle.ts';
 import {
@@ -149,125 +153,86 @@ export function addChanges(): void {
   }
 }
 
-export function addChangesFromInput(input: string): void {
-  const puzzle = buildPuzzleFromSlide();
-  puzzle.enter(input);
-  puzzle.commit();
-  puzzle.tryApplyAutomatedStrategies();
+export function applyOneStep(): StepResult {
+  const cache = CacheService.getDocumentCache();
+  const initialIndex = parseInt(cache?.get(INITIAL_STRATEGY_INDEX_CACHE_KEY) ?? '-1', 10);
+
+  if (initialIndex >= 0) {
+    const initialStrategies = createInitialStrategies();
+    const puzzle = buildPuzzleFromCache(cache);
+    for (let i = initialIndex; i < initialStrategies.length; i++) {
+      const result = puzzle.tryApplyOneStrategyStep([ensureNonNullable(initialStrategies[i])]);
+      if (result.applied) {
+        cache?.put(INITIAL_STRATEGY_INDEX_CACHE_KEY, String(i + 1), CACHE_EXPIRATION_SECONDS);
+        saveCellState(cache, puzzle);
+        return result;
+      }
+    }
+    cache?.remove(INITIAL_STRATEGY_INDEX_CACHE_KEY);
+    const result = puzzle.tryApplyOneStrategyStep(createStrategies(puzzle.puzzleSize));
+    if (result.applied) {
+      saveCellState(cache, puzzle);
+    } else {
+      cache?.remove(CELL_STATE_CACHE_KEY);
+    }
+    return result;
+  }
+
+  const puzzle = buildPuzzleFromCache(cache);
+  const result = puzzle.tryApplyOneStrategyStep(createStrategies(puzzle.puzzleSize));
+  if (result.applied) {
+    saveCellState(cache, puzzle);
+  } else {
+    cache?.remove(CELL_STATE_CACHE_KEY);
+  }
+  return result;
+}
+
+export function finishInit(): void {
+  addMathdokuMenu();
+  const pres = SlidesApp.getActivePresentation();
+  const slides = pres.getSlides();
+  const lastSlide = slides[slides.length - 1];
+  if (lastSlide) {
+    lastSlide.selectAsCurrentPage();
+  }
+}
+
+export function getPuzzleJsonFromCache(): string {
+  const cache = CacheService.getDocumentCache();
+  const json = cache?.get(PUZZLE_JSON_CACHE_KEY);
+  if (!json) {
+    throw new Error('Puzzle data not found in cache. Please try again.');
+  }
+  return json;
+}
+
+export function getRevertState(): { lastSlideNotes: string; slideCount: number } {
+  const pres = SlidesApp.getActivePresentation();
+  const slides = pres.getSlides();
+  const lastSlide = slides[slides.length - 1];
+  const notes = lastSlide
+    ? lastSlide.getNotesPage().getSpeakerNotesShape().getText().asString().replace(/\n$/, '')
+    : '';
+  return { lastSlideNotes: notes, slideCount: slides.length };
 }
 
 export function importPuzzle(puzzleJson: PuzzleJson | string, presId?: string): void {
-  const parsed: PuzzleJson = (typeof puzzleJson === 'string') ? JSON.parse(puzzleJson) as PuzzleJson : puzzleJson;
-  const puzzleSize = parsed.puzzleSize;
-  const cages = parsed.cages;
-  const hasOperators = parsed.hasOperators !== false;
-  const title = parsed.title ?? '';
-  const meta = parsed.meta ?? '';
-
-  const profile = LAYOUT_PROFILES[puzzleSize];
-  if (!profile) {
-    throw new Error(`Unsupported size: ${String(puzzleSize)}`);
-  }
-
-  const state: PuzzleState = { cages, hasOperators, puzzleSize };
-  const docProps = PropertiesService.getDocumentProperties();
-  docProps.setProperty('mathdokuState', JSON.stringify(state));
-  docProps.setProperty('mathdokuInitialized', 'true');
-
-  const pres = presId === undefined
-    ? SlidesApp.getActivePresentation()
-    : SlidesApp.openById(presId);
-
-  for (const existingSlide of pres.getSlides()) {
-    existingSlide.remove();
-  }
-
-  const slide = pres.appendSlide(SlidesApp.PredefinedLayout.BLANK);
-
-  for (const element of slide.getPageElements()) {
-    element.remove();
-  }
-
-  slide.getBackground().setSolidFill('#FFFFFF');
-
-  Logger.log(
-    `Page dimensions: ${String(pres.getPageWidth())}x${String(pres.getPageHeight())} pt (expected ${String(SLIDE_WIDTH_PT)}x${String(SLIDE_HEIGHT_PT)})`
-  );
-
-  const gridLeft = pt(in2pt(profile.gridLeftInches));
-  const gridTop = pt(in2pt(profile.gridTopInches));
-  const gridSize = pt(in2pt(profile.gridSizeInches));
-
-  const boundaries = new GridBoundaries(cages, puzzleSize);
-
-  const ctx: GridRenderContext = {
-    boundaries,
-    gridLeft,
-    gridSize,
-    gridTop,
-    profile,
-    puzzleSize,
-    slide
-  };
-
-  // Title
-  const titleLeft = pt(in2pt(TITLE_HORIZONTAL_MARGIN_INCHES / SIDE_COUNT));
-  const titleTop = pt(in2pt(TEXT_BOX_TOP_PADDING_INCHES));
-  const titleWidth = pt(SLIDE_WIDTH_PT - in2pt(TITLE_HORIZONTAL_MARGIN_INCHES));
-  const titleHeight = pt(in2pt(profile.titleHeightInches));
-  const titleBox = slide.insertTextBox(`${title}\n${meta}`, titleLeft, titleTop, titleWidth, titleHeight);
-  const titleRange = titleBox.getText();
-  titleRange.getRange(0, title.length).getTextStyle()
-    .setFontFamily('Segoe UI').setFontSize(profile.titleFontSize).setBold(true).setForegroundColor(BLACK);
-  if (meta.length > 0) {
-    titleRange.getRange(title.length + 1, title.length + 1 + meta.length).getTextStyle()
-      .setFontFamily('Segoe UI').setFontSize(profile.metaFontSize).setBold(false).setForegroundColor(VALUE_GRAY);
-  }
-  titleRange.getParagraphStyle().setParagraphAlignment(SlidesApp.ParagraphAlignment.CENTER);
-
-  // Value + Candidates boxes
-  renderValueAndCandidateBoxes(ctx);
-
-  // Draw order
-  drawThinGrid(ctx);
-  drawCageBoundaries(ctx);
-  drawJoinSquares(ctx);
-  drawOuterBorder(ctx);
-  drawAxisLabels(ctx);
-  drawCageLabels(ctx, cages, hasOperators);
-
-  // Footer
-  const footerLeft = pt(in2pt(TITLE_HORIZONTAL_MARGIN_INCHES));
-  const footerTop = pt(SLIDE_HEIGHT_PT - in2pt(FOOTER_OFFSET_INCHES));
-  const footerWidth = pt(SLIDE_WIDTH_PT - in2pt(SIDE_COUNT * TITLE_HORIZONTAL_MARGIN_INCHES));
-  const footerHeight = pt(in2pt(FOOTER_HEIGHT_INCHES));
-  const footerBox = slide.insertTextBox(FOOTER_TEXT, footerLeft, footerTop, footerWidth, footerHeight);
-  footerBox.getText().getTextStyle()
-    .setFontFamily('Segoe UI').setFontSize(FOOTER_FONT_SIZE).setBold(false).setForegroundColor(FOOTER_COLOR);
-  footerBox.getText().getParagraphStyle().setParagraphAlignment(SlidesApp.ParagraphAlignment.END);
-
-  // Solve notes columns
-  renderSolveNotesColumns(ctx);
-
-  // Post-scale
-  scaleIfNeeded(pres, ctx);
+  const parsed: PuzzleJson = (typeof puzzleJson === 'string') ? parsePuzzleJson(JSON.parse(puzzleJson) as unknown) : puzzleJson;
+  importPuzzleGrid(parsed, presId);
 
   // Init slides via Puzzle
   const renderer = new SlidesRenderer();
   initPuzzleSlides({
-    cages,
-    hasOperators,
+    cages: parsed.cages,
+    hasOperators: parsed.hasOperators !== false,
     initialStrategies: createInitialStrategies(),
-    meta,
-    puzzleSize,
+    meta: parsed.meta ?? '',
+    puzzleSize: parsed.puzzleSize,
     renderer,
-    strategies: createStrategies(puzzleSize),
-    title
+    strategies: createStrategies(parsed.puzzleSize),
+    title: parsed.title ?? ''
   });
-
-  Logger.log(
-    `Import complete: ${String(puzzleSize)}x${String(puzzleSize)} grid, pageW=${String(pres.getPageWidth())} pageH=${String(pres.getPageHeight())}`
-  );
 }
 
 export function init(): void {
@@ -297,28 +262,66 @@ export function init(): void {
     const text = initShape.getText().asString();
     let puzzleData: PuzzleJson;
     try {
-      puzzleData = JSON.parse(text) as PuzzleJson;
+      puzzleData = parsePuzzleJson(JSON.parse(text) as unknown);
     } catch {
       SlidesApp.getUi().alert('Invalid puzzle data.');
       return;
     }
     initShape.remove();
-    importPuzzle(puzzleData);
-    props.setProperty('mathdokuInitialized', 'true');
-    addMathdokuMenu();
 
-    const allSlides = pres.getSlides();
-    const lastInitSlide = allSlides[allSlides.length - 1];
-    if (lastInitSlide) {
-      lastInitSlide.selectAsCurrentPage();
+    const cache = CacheService.getDocumentCache();
+    if (cache) {
+      cache.put(PUZZLE_JSON_CACHE_KEY, JSON.stringify(puzzleData), CACHE_EXPIRATION_SECONDS);
     }
+
+    openProgressDialog('Initializing', true);
   } catch (e: unknown) {
     showError('Init', e);
   }
 }
 
+export function initGridSetup(puzzleJsonStr: string): void {
+  const puzzleJson = parsePuzzleJson(JSON.parse(puzzleJsonStr) as unknown);
+  importPuzzleGrid(puzzleJson);
+  const cache = CacheService.getDocumentCache();
+  cache?.put(INITIAL_STRATEGY_INDEX_CACHE_KEY, '0', CACHE_EXPIRATION_SECONDS);
+  cache?.put(CELL_STATE_CACHE_KEY, JSON.stringify({ candidates: {}, values: {} }), CACHE_EXPIRATION_SECONDS);
+}
+
+export function needsGridSetup(): boolean {
+  const cache = CacheService.getDocumentCache();
+  const value = cache?.get(NEEDS_GRID_SETUP_CACHE_KEY);
+  if (value) {
+    cache?.remove(NEEDS_GRID_SETUP_CACHE_KEY);
+  }
+  return value === 'true';
+}
+
 export function onOpen(): void {
   addMathdokuMenu();
+}
+
+export function revertOperation(targetSlideCount: number, savedNotes: string): void {
+  const pres = SlidesApp.getActivePresentation();
+  const slides = pres.getSlides();
+  for (let i = slides.length - 1; i >= targetSlideCount; i--) {
+    ensureNonNullable(slides[i]).remove();
+  }
+  const remaining = pres.getSlides();
+  const lastSlide = remaining[remaining.length - 1];
+  if (lastSlide) {
+    setSlideNotes(lastSlide, savedNotes);
+    lastSlide.selectAsCurrentPage();
+  }
+  CacheService.getDocumentCache()?.remove(CELL_STATE_CACHE_KEY);
+}
+
+export function submitEnterCommand(input: string): void {
+  const puzzle = buildPuzzleFromSlide();
+  puzzle.enter(input);
+  puzzle.commit();
+  saveCellState(CacheService.getDocumentCache(), puzzle);
+  openProgressDialog('Applying strategies', false);
 }
 
 function addMathdokuMenu(): void {
@@ -396,6 +399,32 @@ function applyPendingValue(
     .setForegroundColor(GREEN);
 
   clearShapeText(slide, `CANDIDATES_${cellRef}`);
+}
+
+function buildPuzzleFromCache(cache: GoogleAppsScript.Cache.Cache | null): Puzzle {
+  const cachedState = cache?.get(CELL_STATE_CACHE_KEY);
+  if (cachedState) {
+    const state = getPuzzleState();
+    const snapshot = JSON.parse(cachedState) as { candidates: Record<string, number[]>; values: Record<string, number> };
+    const initialValues = new Map<string, number>();
+    const initialCandidates = new Map<string, Set<number>>();
+    for (const [ref, value] of Object.entries(snapshot.values)) {
+      initialValues.set(ref, value);
+    }
+    for (const [ref, cands] of Object.entries(snapshot.candidates)) {
+      initialCandidates.set(ref, new Set(cands));
+    }
+    return new Puzzle({
+      cages: state.cages,
+      hasOperators: state.hasOperators,
+      initialCandidates,
+      initialValues,
+      puzzleSize: state.puzzleSize,
+      renderer: new SlidesRenderer(),
+      strategies: createStrategies(state.puzzleSize)
+    });
+  }
+  return buildPuzzleFromSlide();
 }
 
 function buildPuzzleFromSlide(): Puzzle {
@@ -552,12 +581,9 @@ function drawCageLabels(ctx: GridRenderContext, cages: readonly CageRaw[], hasOp
     const topLeftCell = ensureNonNullable(parsed[0]);
     const topLeftCellRef = topLeftCell.ref;
 
-    let label = cage.label ?? '';
-    if (!label) {
-      label = hasOperators && cage.cells.length > 1 && cage.operator
-        ? String(cage.value) + opSymbol(cage.operator)
-        : String(cage.value);
-    }
+    const label = hasOperators && cage.cells.length > 1 && cage.operator !== Operator.Unknown
+      ? String(cage.value) + opSymbol(cage.operator)
+      : String(cage.value);
 
     const x = pt(gridLeft + (topLeftCell.columnId - 1) * cellWidth + insetX);
     const y = pt(gridTop + (topLeftCell.rowId - 1) * cellWidth + insetY - TEXT_BOX_TOP_PADDING_PT);
@@ -795,7 +821,7 @@ function getPuzzleState(): PuzzleState {
   if (!raw) {
     throw new Error('No puzzle state found in document properties');
   }
-  return JSON.parse(raw) as PuzzleState;
+  return parsePuzzleState(JSON.parse(raw) as unknown);
 }
 
 function getShapeByTitle(slide: GoogleAppsScript.Slides.Slide, title: string): GoogleAppsScript.Slides.Shape | null {
@@ -805,6 +831,106 @@ function getShapeByTitle(slide: GoogleAppsScript.Slides.Slide, title: string): G
     }
   }
   return null;
+}
+
+function importPuzzleGrid(parsed: PuzzleJson, presId?: string): void {
+  const puzzleSize = parsed.puzzleSize;
+  const cages = parsed.cages;
+  const hasOperators = parsed.hasOperators !== false;
+  const title = parsed.title ?? '';
+  const meta = parsed.meta ?? '';
+
+  const profile = LAYOUT_PROFILES[puzzleSize];
+  if (!profile) {
+    throw new Error(`Unsupported size: ${String(puzzleSize)}`);
+  }
+
+  const state: PuzzleState = { cages, hasOperators, puzzleSize };
+  const docProps = PropertiesService.getDocumentProperties();
+  docProps.setProperty('mathdokuState', JSON.stringify(state));
+  docProps.setProperty('mathdokuInitialized', 'true');
+
+  const pres = presId === undefined
+    ? SlidesApp.getActivePresentation()
+    : SlidesApp.openById(presId);
+
+  for (const existingSlide of pres.getSlides()) {
+    existingSlide.remove();
+  }
+
+  const slide = pres.appendSlide(SlidesApp.PredefinedLayout.BLANK);
+
+  for (const element of slide.getPageElements()) {
+    element.remove();
+  }
+
+  slide.getBackground().setSolidFill('#FFFFFF');
+
+  Logger.log(
+    `Page dimensions: ${String(pres.getPageWidth())}x${String(pres.getPageHeight())} pt (expected ${String(SLIDE_WIDTH_PT)}x${String(SLIDE_HEIGHT_PT)})`
+  );
+
+  const gridLeft = pt(in2pt(profile.gridLeftInches));
+  const gridTop = pt(in2pt(profile.gridTopInches));
+  const gridSize = pt(in2pt(profile.gridSizeInches));
+
+  const boundaries = new GridBoundaries(cages, puzzleSize);
+
+  const ctx: GridRenderContext = {
+    boundaries,
+    gridLeft,
+    gridSize,
+    gridTop,
+    profile,
+    puzzleSize,
+    slide
+  };
+
+  // Title
+  const titleLeft = pt(in2pt(TITLE_HORIZONTAL_MARGIN_INCHES / SIDE_COUNT));
+  const titleTop = pt(in2pt(TEXT_BOX_TOP_PADDING_INCHES));
+  const titleWidth = pt(SLIDE_WIDTH_PT - in2pt(TITLE_HORIZONTAL_MARGIN_INCHES));
+  const titleHeight = pt(in2pt(profile.titleHeightInches));
+  const titleBox = slide.insertTextBox(`${title}\n${meta}`, titleLeft, titleTop, titleWidth, titleHeight);
+  const titleRange = titleBox.getText();
+  titleRange.getRange(0, title.length).getTextStyle()
+    .setFontFamily('Segoe UI').setFontSize(profile.titleFontSize).setBold(true).setForegroundColor(BLACK);
+  if (meta.length > 0) {
+    titleRange.getRange(title.length + 1, title.length + 1 + meta.length).getTextStyle()
+      .setFontFamily('Segoe UI').setFontSize(profile.metaFontSize).setBold(false).setForegroundColor(VALUE_GRAY);
+  }
+  titleRange.getParagraphStyle().setParagraphAlignment(SlidesApp.ParagraphAlignment.CENTER);
+
+  // Value + Candidates boxes
+  renderValueAndCandidateBoxes(ctx);
+
+  // Draw order
+  drawThinGrid(ctx);
+  drawCageBoundaries(ctx);
+  drawJoinSquares(ctx);
+  drawOuterBorder(ctx);
+  drawAxisLabels(ctx);
+  drawCageLabels(ctx, cages, hasOperators);
+
+  // Footer
+  const footerLeft = pt(in2pt(TITLE_HORIZONTAL_MARGIN_INCHES));
+  const footerTop = pt(SLIDE_HEIGHT_PT - in2pt(FOOTER_OFFSET_INCHES));
+  const footerWidth = pt(SLIDE_WIDTH_PT - in2pt(SIDE_COUNT * TITLE_HORIZONTAL_MARGIN_INCHES));
+  const footerHeight = pt(in2pt(FOOTER_HEIGHT_INCHES));
+  const footerBox = slide.insertTextBox(FOOTER_TEXT, footerLeft, footerTop, footerWidth, footerHeight);
+  footerBox.getText().getTextStyle()
+    .setFontFamily('Segoe UI').setFontSize(FOOTER_FONT_SIZE).setBold(false).setForegroundColor(FOOTER_COLOR);
+  footerBox.getText().getParagraphStyle().setParagraphAlignment(SlidesApp.ParagraphAlignment.END);
+
+  // Solve notes columns
+  renderSolveNotesColumns(ctx);
+
+  // Post-scale
+  scaleIfNeeded(pres, ctx);
+
+  Logger.log(
+    `Import complete: ${String(puzzleSize)}x${String(puzzleSize)} grid, pageW=${String(pres.getPageWidth())} pageH=${String(pres.getPageHeight())}`
+  );
 }
 
 function in2pt(inches: number): number {
@@ -842,18 +968,31 @@ function makeNextSlide(puzzleSize: number, noteText = ''): void {
   newSlide.selectAsCurrentPage();
 }
 
-function opSymbol(op: string): string {
-  const map: Record<string, string> = {
-    '-': '\u2212',
-    '*': 'x',
-    '/': '/',
-    '+': '+',
-    '\u00f7': '/',
-    '\u2212': '\u2212',
-    'X': 'x',
-    'x': 'x'
-  };
-  return map[op.trim()] ?? op.trim();
+function openProgressDialog(title: string, gridSetup: boolean): void {
+  if (gridSetup) {
+    const cache = CacheService.getDocumentCache();
+    cache?.put(NEEDS_GRID_SETUP_CACHE_KEY, 'true', CACHE_EXPIRATION_SECONDS);
+  }
+  const html = HtmlService.createHtmlOutputFromFile('ProgressDialog')
+    .setWidth(PROGRESS_DIALOG_WIDTH_PX)
+    .setHeight(PROGRESS_DIALOG_HEIGHT_PX);
+  SlidesApp.getUi().showModalDialog(html, title);
+}
+
+function opSymbol(op: Operator): string {
+  switch (op) {
+    case Operator.Divide:
+      return '/';
+    case Operator.Minus:
+      return '\u2212';
+    case Operator.Plus:
+      return '+';
+    case Operator.Times:
+      return 'x';
+    case Operator.Unknown:
+    default:
+      return '?';
+  }
 }
 
 function pt(x: number): number {
@@ -961,6 +1100,20 @@ function renderValueAndCandidateBoxes(ctx: GridRenderContext): void {
   }
 }
 
+function saveCellState(cache: GoogleAppsScript.Cache.Cache | null, puzzle: Puzzle): void {
+  const values: Record<string, number> = {};
+  const candidates: Record<string, number[]> = {};
+  for (const cell of puzzle.cells) {
+    if (cell.value !== null) {
+      values[cell.ref] = cell.value;
+    }
+    if (cell.candidateCount > 0) {
+      candidates[cell.ref] = cell.getCandidates();
+    }
+  }
+  cache?.put(CELL_STATE_CACHE_KEY, JSON.stringify({ candidates, values }), CACHE_EXPIRATION_SECONDS);
+}
+
 function scaleIfNeeded(pres: GoogleAppsScript.Slides.Presentation, ctx: GridRenderContext): void {
   const { gridSize, gridTop, profile, slide } = ctx;
   const pageWidth = pres.getPageWidth();
@@ -1027,10 +1180,12 @@ function showError(source: string, e: unknown): void {
 
 const AXIS_LABEL_MAGENTA = '#C800C8';
 const BLACK = '#000000';
+const CACHE_EXPIRATION_SECONDS = 600;
 const CAGE_LABEL_BLUE = '#3232C8';
 const CANDIDATES_DARK_RED = '#8B0000';
 const CANDIDATES_FONT = 'Consolas';
 const CANDIDATE_ROW_COUNT = 2;
+const CELL_STATE_CACHE_KEY = 'cellState';
 const CHAR_CODE_A = 65;
 const ENTER_DIALOG_HEIGHT_PX = 140;
 const ENTER_DIALOG_WIDTH_PX = 400;
@@ -1043,6 +1198,8 @@ const FOOTER_HEIGHT_INCHES = 0.3;
 const FOOTER_OFFSET_INCHES = 0.45;
 const FOOTER_TEXT = '@mnaoumov';
 const GREEN = '#00B050';
+const INITIAL_STRATEGY_INDEX_CACHE_KEY = 'initialStrategyIndex';
+
 /* eslint-disable no-magic-numbers -- Canonical layout spec values. */
 const LAYOUT_PROFILES: Record<number, LayoutProfile> = {
   4: {
@@ -1164,7 +1321,11 @@ const LAYOUT_PROFILES: Record<number, LayoutProfile> = {
 const LIGHT_GRAY_BORDER = '#C8C8C8';
 const MIN_FONT_SIZE = 7;
 const POINTS_PER_INCH = 72;
+const PROGRESS_DIALOG_HEIGHT_PX = 350;
+const PROGRESS_DIALOG_WIDTH_PX = 450;
+const NEEDS_GRID_SETUP_CACHE_KEY = 'needsGridSetup';
 const PUZZLE_INIT_OBJECT_ID = 'PuzzleInitData';
+const PUZZLE_JSON_CACHE_KEY = 'puzzleJson';
 const SCALE_MARGIN_PT = 20;
 const SCALE_TOLERANCE_PT = 0.5;
 const SIDE_COUNT = 2;

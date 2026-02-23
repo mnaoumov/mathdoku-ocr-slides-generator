@@ -1,7 +1,14 @@
 export {
   addChanges,
-  addChangesFromInput,
+  applyOneStep,
+  finishInit,
+  getPuzzleJsonFromCache,
+  getRevertState,
   importPuzzle,
   init,
-  onOpen
+  initGridSetup,
+  needsGridSetup,
+  onOpen,
+  revertOperation,
+  submitEnterCommand
 } from './View.ts';

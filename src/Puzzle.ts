@@ -82,6 +82,12 @@ export interface PuzzleState {
   readonly hasOperators: boolean;
   readonly puzzleSize: number;
 }
+
+export interface StepResult {
+  readonly applied: boolean;
+  readonly message?: string;
+}
+
 interface EnterCommand {
   readonly cells: readonly Cell[];
   readonly operation: CellOperation;
@@ -398,6 +404,20 @@ export class Puzzle {
       }
     }
     return applied;
+  }
+
+  public tryApplyOneStrategyStep(strategies: readonly Strategy[]): StepResult {
+    for (const strategy of strategies) {
+      const result = strategy.tryApply(this);
+      if (result) {
+        const message = buildNote(strategy.name, result.details);
+        this.renderer.setNoteText(message);
+        this.applyChanges(result.changeGroups.flatMap((g) => g.changes));
+        this.commit();
+        return { applied: true, message };
+      }
+    }
+    return { applied: false };
   }
 
   private buildEnterChanges(input: string): CellChange[] {

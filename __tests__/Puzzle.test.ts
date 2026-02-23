@@ -262,6 +262,68 @@ describe('Cell', () => {
   });
 });
 
+describe('tryApplyOneStrategyStep', () => {
+  const SIZE_2_CAGES = [
+    { cells: ['A1', 'B1'], operator: Operator.Plus, value: 3 },
+    { cells: ['A2', 'B2'], operator: Operator.Plus, value: 3 }
+  ];
+
+  it('returns { applied: false } when no strategies match', () => {
+    const puzzle = createTestPuzzle({ cages: SIZE_2_CAGES, hasOperators: true, puzzleSize: 2 });
+    for (const cell of puzzle.cells) {
+      cell.setCandidates([1, 2]);
+    }
+    const result = puzzle.tryApplyOneStrategyStep(createStrategies(2));
+    expect(result.applied).toBe(false);
+    expect(result.message).toBeUndefined();
+  });
+
+  it('applies first matching strategy and returns message', () => {
+    const puzzle = createTestPuzzle({ cages: SIZE_2_CAGES, hasOperators: true, puzzleSize: 2 });
+    puzzle.getCell('A1').setCandidates([1]);
+    puzzle.getCell('B1').setCandidates([1, 2]);
+    puzzle.getCell('A2').setCandidates([1, 2]);
+    puzzle.getCell('B2').setCandidates([1, 2]);
+
+    const result = puzzle.tryApplyOneStrategyStep(createStrategies(2));
+    expect(result.applied).toBe(true);
+    expect(result.message).toContain('Single candidate');
+    expect(puzzle.getCell('A1').value).toBe(1);
+  });
+
+  it('applies only one step per call', () => {
+    const renderer = new TrackingRenderer();
+    const puzzle = createTestPuzzle({ cages: SIZE_2_CAGES, hasOperators: true, puzzleSize: 2, renderer });
+    puzzle.getCell('A1').setCandidates([1]);
+    puzzle.getCell('B1').setCandidates([2]);
+    puzzle.getCell('A2').setCandidates([1, 2]);
+    puzzle.getCell('B2').setCandidates([1, 2]);
+
+    const strategies = createStrategies(2);
+    const result1 = puzzle.tryApplyOneStrategyStep(strategies);
+    expect(result1.applied).toBe(true);
+    // Only 2 slides created (pending + committed) for one step
+    expect(renderer.slideCount).toBe(3);
+
+    const result2 = puzzle.tryApplyOneStrategyStep(strategies);
+    expect(result2.applied).toBe(true);
+    expect(renderer.slideCount).toBe(5);
+  });
+
+  it('records note text for the step', () => {
+    const renderer = new TrackingRenderer();
+    const puzzle = createTestPuzzle({ cages: SIZE_2_CAGES, hasOperators: true, puzzleSize: 2, renderer });
+    puzzle.getCell('A1').setCandidates([1]);
+    puzzle.getCell('B1').setCandidates([1, 2]);
+    puzzle.getCell('A2').setCandidates([1, 2]);
+    puzzle.getCell('B2').setCandidates([1, 2]);
+
+    puzzle.tryApplyOneStrategyStep(createStrategies(2));
+    const strategyNotes = renderer.notesBySlide.filter((n) => n.startsWith('Single candidate'));
+    expect(strategyNotes).toHaveLength(2);
+  });
+});
+
 describe('tryApplyAutomatedStrategies', () => {
   const SIZE_2_CAGES = [
     { cells: ['A1', 'B1'], operator: Operator.Plus, value: 3 },

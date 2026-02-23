@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <style>
+    body { font-family: Segoe UI, Arial, sans-serif; margin: 12px; display: flex; flex-direction: column; height: calc(100vh - 24px); }
+    .log { flex: 1; overflow-y: auto; border: 1px solid #e0e0e0; border-radius: 4px; padding: 8px; margin-bottom: 12px; font-size: 13px; background: #fafafa; }
+    .log-entry { padding: 3px 0; color: #333; }
+    .log-entry.done { color: #2e7d32; }
+    .log-entry.done::before { content: "\2713 "; }
+    .log-entry.active { color: #1565c0; }
+    .log-entry.active::before { content: ""; display: inline-block; width: 12px; height: 12px; border: 2px solid #1565c0; border-top-color: transparent; border-radius: 50%; animation: spin 0.8s linear infinite; margin-right: 6px; vertical-align: middle; }
+    .log-entry.error { color: #c62828; }
+    .log-entry.error::before { content: "\2717 "; }
+    .summary { font-size: 13px; color: #555; margin-bottom: 12px; min-height: 18px; }
+    .buttons { text-align: right; }
+    button { padding: 6px 20px; font-size: 13px; border: 1px solid #ccc; border-radius: 3px; cursor: pointer; margin-left: 8px; }
+    button.primary { background: #4285f4; color: white; border-color: #4285f4; }
+    button.danger { background: #d32f2f; color: white; border-color: #d32f2f; }
+    button:disabled { opacity: 0.5; cursor: default; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
+</head>
+<body>
+  <div class="log" id="log"></div>
+  <div class="summary" id="summary"></div>
+  <div class="buttons">
+    <button class="danger" id="cancelBtn" onclick="cancelOperation()">Cancel</button>
+    <button class="primary" id="closeBtn" onclick="google.script.host.close()" style="display:none">Close</button>
+  </div>
+
+  <script>
+    var logEl = document.getElementById("log");
+    var summaryEl = document.getElementById("summary");
+    var cancelBtn = document.getElementById("cancelBtn");
+    var closeBtn = document.getElementById("closeBtn");
+    var cancelled = false;
+    var revertState = null;
+    var stepCount = 0;
+    var activeEntry = null;
+    var isInit = false;
+
+    function addLogEntry(text, className) {
+      if (activeEntry) {
+        activeEntry.className = "log-entry done";
+      }
+      var entry = document.createElement("div");
+      entry.className = "log-entry " + className;
+      entry.textContent = text;
+      logEl.appendChild(entry);
+      logEl.scrollTop = logEl.scrollHeight;
+      if (className === "active") {
+        activeEntry = entry;
+      }
+      return entry;
+    }
+
+    function finishActiveEntry() {
+      if (activeEntry) {
+        activeEntry.className = "log-entry done";
+        activeEntry = null;
+      }
+    }
+
+    function showDone() {
+      finishActiveEntry();
+      summaryEl.textContent = "Done (" + stepCount + " step" + (stepCount === 1 ? "" : "s") + ").";
+      cancelBtn.style.display = "none";
+      closeBtn.style.display = "";
+      if (isInit) {
+        google.script.run.withFailureHandler(function() {}).finishInit();
+      }
+    }
+
+    function onError(err) {
+      finishActiveEntry();
+      addLogEntry("Error: " + err.message, "error");
+      summaryEl.textContent = "An error occurred.";
+      cancelBtn.style.display = "none";
+      closeBtn.style.display = "";
+    }
+
+    function cancelOperation() {
+      cancelled = true;
+      cancelBtn.disabled = true;
+      cancelBtn.textContent = "Cancelling...";
+      if (revertState) {
+        finishActiveEntry();
+        addLogEntry("Reverting changes...", "active");
+        google.script.run
+          .withSuccessHandler(function() {
+            finishActiveEntry();
+            addLogEntry("Changes reverted", "done");
+            summaryEl.textContent = "Cancelled after " + stepCount + " step" + (stepCount === 1 ? "" : "s") + ".";
+            cancelBtn.style.display = "none";
+            closeBtn.style.display = "";
+          })
+          .withFailureHandler(function(err) {
+            finishActiveEntry();
+            addLogEntry("Revert failed: " + err.message, "error");
+            cancelBtn.style.display = "none";
+            closeBtn.style.display = "";
+          })
+          .revertOperation(revertState.slideCount, revertState.lastSlideNotes);
+      } else {
+        summaryEl.textContent = "Cancelled.";
+        cancelBtn.style.display = "none";
+        closeBtn.style.display = "";
+      }
+    }
+
+    function runChunks() {
+      if (cancelled) return;
+      google.script.run
+        .withSuccessHandler(function(result) {
+          if (cancelled) return;
+          if (result.applied) {
+            stepCount++;
+            finishActiveEntry();
+            addLogEntry(result.message || ("Step " + stepCount), "active");
+            runChunks();
+          } else {
+            showDone();
+          }
+        })
+        .withFailureHandler(onError)
+        .applyOneStep();
+    }
+
+    function startChunks() {
+      google.script.run
+        .withSuccessHandler(function(state) {
+          revertState = state;
+          addLogEntry("Applying strategies...", "active");
+          runChunks();
+        })
+        .withFailureHandler(onError)
+        .getRevertState();
+    }
+
+    function doGridSetup(puzzleJson) {
+      addLogEntry("Creating puzzle grid...", "active");
+      google.script.run
+        .withSuccessHandler(function() {
+          finishActiveEntry();
+          startChunks();
+        })
+        .withFailureHandler(onError)
+        .initGridSetup(puzzleJson);
+    }
+
+    google.script.run
+      .withSuccessHandler(function(gridSetup) {
+        isInit = gridSetup;
+        if (gridSetup) {
+          google.script.run
+            .withSuccessHandler(function(json) { doGridSetup(json); })
+            .withFailureHandler(onError)
+            .getPuzzleJsonFromCache();
+        } else {
+          startChunks();
+        }
+      })
+      .withFailureHandler(onError)
+      .needsGridSetup();
+  </script>
+</body>
+</html>
