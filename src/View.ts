@@ -663,11 +663,11 @@ function drawCageLabels(ctx: GridRenderContext, cages: readonly CageRaw[], hasOp
       ? String(cage.value) + opSymbol(cage.operator)
       : String(cage.value);
 
-    const x = pt(gridLeft + (topLeftCell.columnId - 1) * cellWidth + insetX);
+    const x = pt(gridLeft + (topLeftCell.columnId - 1) * cellWidth + insetX - TEXT_BOX_SIDE_PADDING_PT);
     const y = pt(gridTop + (topLeftCell.rowId - 1) * cellWidth + insetY - TEXT_BOX_TOP_PADDING_PT);
     const usableHeight = Math.max(MIN_FONT_SIZE, labelBoxHeight - TEXT_BOX_TOP_PADDING_PT);
     const actualFont = fitFontSize(label, cageProfile.font, labelBoxWidth / POINTS_PER_INCH, usableHeight / POINTS_PER_INCH);
-    const box = slide.insertTextBox(label, x, y, pt(labelBoxWidth), pt(labelBoxHeight));
+    const box = slide.insertTextBox(label, x, y, pt(labelBoxWidth + SIDE_COUNT * TEXT_BOX_SIDE_PADDING_PT), pt(labelBoxHeight));
     box.setTitle(`CAGE_${String(i)}_${topLeftCellRef}`);
     box.getText().getTextStyle()
       .setFontFamily('Segoe UI').setFontSize(actualFont).setBold(true).setForegroundColor(CAGE_LABEL_BLUE);
@@ -1291,7 +1291,7 @@ const CHAR_CODE_A = 65;
 const ENTER_DIALOG_HEIGHT_PX = 160;
 const ENTER_DIALOG_WIDTH_PX = 400;
 const FONT_FIT_HEIGHT_RATIO = 1.15;
-const FONT_FIT_PADDING_PT = 10;
+const FONT_FIT_PADDING_PT = 2;
 const FONT_FIT_WIDTH_RATIO = 0.60;
 const FOOTER_COLOR = '#6E7887';
 const FOOTER_FONT_SIZE = 14;
@@ -1432,6 +1432,8 @@ const SCALE_TOLERANCE_PT = 0.5;
 const SIDE_COUNT = 2;
 const SLIDE_HEIGHT_PT = 540;
 const SLIDE_WIDTH_PT = 960;
+const TEXT_BOX_SIDE_PADDING_INCHES = 0.1;
+const TEXT_BOX_SIDE_PADDING_PT = TEXT_BOX_SIDE_PADDING_INCHES * POINTS_PER_INCH;
 const TEXT_BOX_TOP_PADDING_INCHES = 0.05;
 const TEXT_BOX_TOP_PADDING_PT = TEXT_BOX_TOP_PADDING_INCHES * POINTS_PER_INCH;
 const THIN_GRAY = '#AAAAAA';
