@@ -1,0 +1,107 @@
+body {
+  font-family: Segoe UI, Arial, sans-serif;
+  margin: 12px;
+  display: flex;
+  flex-direction: column;
+  height: calc(100vh - 24px);
+}
+
+.log {
+  flex: 1;
+  overflow-y: auto;
+  border: 1px solid #e0e0e0;
+  border-radius: 4px;
+  padding: 8px;
+  margin-bottom: 12px;
+  font-size: 13px;
+  background: #fafafa;
+}
+
+.log-entry {
+  padding: 3px 0;
+  color: #333;
+}
+
+.log-entry.done {
+  color: #2e7d32;
+}
+
+.log-entry.done::before {
+  content: "\2713 ";
+}
+
+.log-entry.active {
+  color: #1565c0;
+}
+
+.log-entry.active::before {
+  content: "";
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border: 2px solid #1565c0;
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+.log-entry.error {
+  color: #c62828;
+}
+
+.log-entry.error::before {
+  content: "\2717 ";
+}
+
+.log-entry.skipped {
+  color: #999;
+}
+
+.log-entry.skipped::before {
+  content: "\2013 ";
+}
+
+.summary {
+  font-size: 13px;
+  color: #555;
+  margin-bottom: 12px;
+  min-height: 18px;
+}
+
+.buttons {
+  text-align: right;
+}
+
+button {
+  padding: 6px 20px;
+  font-size: 13px;
+  border: 1px solid #ccc;
+  border-radius: 3px;
+  cursor: pointer;
+  margin-left: 8px;
+}
+
+button.primary {
+  background: #4285f4;
+  color: white;
+  border-color: #4285f4;
+}
+
+button.danger {
+  background: #d32f2f;
+  color: white;
+  border-color: #d32f2f;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

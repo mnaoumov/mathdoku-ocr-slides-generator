@@ -9,8 +9,9 @@ token.json
 node_modules/
 package-lock.json
 
-# Build output (only the bundled JS; static files in dist/ are tracked)
+# Build output
 dist/Code.js
+dist/*.html
 
 *.pptm
 
