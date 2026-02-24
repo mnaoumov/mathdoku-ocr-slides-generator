@@ -20,7 +20,8 @@
       "WebFetch(domain:typescript-eslint.io)",
       "Bash(PYTHONIOENCODING=utf-8 uv run pytest:*)",
       "*",
-      "Bash"
+      "Bash",
+      "mcp__ide__getDiagnostics"
     ]
   }
 }
