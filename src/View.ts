@@ -6,8 +6,7 @@ import type {
   CageRaw,
   PuzzleJson,
   PuzzleRenderer,
-  PuzzleState,
-  StepResult
+  PuzzleState
 } from './Puzzle.ts';
 
 import { GridBoundaries } from './combinatorics.ts';
@@ -27,6 +26,14 @@ import {
   createStrategies
 } from './strategies/createDefaultStrategies.ts';
 import { ensureNonNullable } from './typeGuards.ts';
+
+interface ApplyStepResult {
+  readonly applied: boolean;
+  readonly message?: string;
+  readonly nextStrategyName?: string;
+  readonly slideNumber: number;
+  readonly strategyName: string;
+}
 
 interface CachedCellState {
   readonly candidates: Record<string, readonly number[]>;
@@ -162,44 +169,40 @@ export function addChanges(): void {
   }
 }
 
-export function applyOneStep(): { pendingNames: readonly string[] } & StepResult {
+export function applyOneStep(): ApplyStepResult {
   const cache = CacheService.getDocumentCache();
   const initialIndex = parseInt(cache?.get(INITIAL_STRATEGY_INDEX_CACHE_KEY) ?? '-1', 10);
 
   if (initialIndex >= 0) {
     const initialStrategies = createInitialStrategies();
-    const puzzle = buildPuzzleFromCache(cache);
-    const skipped: string[] = [];
-    for (let i = initialIndex; i < initialStrategies.length; i++) {
-      const strategy = ensureNonNullable(initialStrategies[i]);
-      const result = puzzle.tryApplyOneStrategyStep([strategy]);
-      if (result.applied) {
-        cache?.put(INITIAL_STRATEGY_INDEX_CACHE_KEY, String(i + 1), CACHE_EXPIRATION_SECONDS);
-        saveCellState(cache, puzzle);
-        return { ...result, pendingNames: getPendingStrategyNames(cache, puzzle.puzzleSize), skipped };
-      }
-      skipped.push(strategy.name);
+    if (initialIndex >= initialStrategies.length) {
+      cache?.remove(INITIAL_STRATEGY_INDEX_CACHE_KEY);
+      return applyOneAutomatedStep(cache, 0);
     }
-    cache?.remove(INITIAL_STRATEGY_INDEX_CACHE_KEY);
-    const result = puzzle.tryApplyOneStrategyStep(createStrategies(puzzle.puzzleSize));
+
+    const strategy = ensureNonNullable(initialStrategies[initialIndex]);
+    const puzzle = buildPuzzleFromCache(cache);
+    const result = puzzle.tryApplyOneStrategyStep([strategy]);
+    const nextInitialIndex = initialIndex + 1;
+    cache?.put(INITIAL_STRATEGY_INDEX_CACHE_KEY, String(nextInitialIndex), CACHE_EXPIRATION_SECONDS);
+
     if (result.applied) {
       saveCellState(cache, puzzle);
-    } else {
-      cache?.remove(CELL_STATE_CACHE_KEY);
-      clearSlideNotes(getLastSlide());
     }
-    return { ...result, pendingNames: getPendingStrategyNames(cache, puzzle.puzzleSize), skipped: [...skipped, ...result.skipped] };
+
+    let nextStrategyName: string | undefined;
+    if (nextInitialIndex < initialStrategies.length) {
+      nextStrategyName = ensureNonNullable(initialStrategies[nextInitialIndex]).name;
+    } else {
+      const automatedStrategies = createStrategies(puzzle.puzzleSize);
+      nextStrategyName = automatedStrategies.length > 0 ? ensureNonNullable(automatedStrategies[0]).name : undefined;
+    }
+
+    return buildApplyStepResult(result.applied, strategy.name, result.slideNumber, result.message, nextStrategyName);
   }
 
-  const puzzle = buildPuzzleFromCache(cache);
-  const result = puzzle.tryApplyOneStrategyStep(createStrategies(puzzle.puzzleSize));
-  if (result.applied) {
-    saveCellState(cache, puzzle);
-  } else {
-    cache?.remove(CELL_STATE_CACHE_KEY);
-    clearSlideNotes(getLastSlide());
-  }
-  return { ...result, pendingNames: getPendingStrategyNames(cache, puzzle.puzzleSize) };
+  const automatedIndex = parseInt(cache?.get(AUTOMATED_STRATEGY_INDEX_CACHE_KEY) ?? '0', 10);
+  return applyOneAutomatedStep(cache, automatedIndex);
 }
 
 export function finishInit(): void {
@@ -221,7 +224,7 @@ export function getPuzzleJsonFromCache(): string {
   return json;
 }
 
-export function getRevertState(): { lastSlideNotes: string; pendingNames: readonly string[]; slideCount: number } {
+export function getRevertState(): { lastSlideNotes: string; nextStrategyName?: string; slideCount: number } {
   const pres = SlidesApp.getActivePresentation();
   const slides = pres.getSlides();
   const lastSlide = slides[slides.length - 1];
@@ -230,7 +233,8 @@ export function getRevertState(): { lastSlideNotes: string; pendingNames: readon
     : '';
   const cache = CacheService.getDocumentCache();
   const state = getPuzzleState();
-  return { lastSlideNotes: notes, pendingNames: getPendingStrategyNames(cache, state.puzzleSize), slideCount: slides.length };
+  const nextName = getNextStrategyName(cache, state.puzzleSize);
+  return { lastSlideNotes: notes, slideCount: slides.length, ...nextName !== undefined && { nextStrategyName: nextName } };
 }
 
 export function importPuzzle(puzzleJson: PuzzleJson | string, presId?: string): void {
@@ -331,6 +335,7 @@ export function revertOperation(targetSlideCount: number, savedNotes: string): v
     lastSlide.selectAsCurrentPage();
   }
   const cache = CacheService.getDocumentCache();
+  cache?.remove(AUTOMATED_STRATEGY_INDEX_CACHE_KEY);
   cache?.remove(CELL_STATE_CACHE_KEY);
   cache?.remove(INITIAL_STRATEGY_INDEX_CACHE_KEY);
 }
@@ -353,6 +358,40 @@ function addMathdokuMenu(): void {
     menu.addItem('Init', 'init');
   }
   menu.addToUi();
+}
+
+function applyOneAutomatedStep(cache: GoogleAppsScript.Cache.Cache | null, automatedIndex: number): ApplyStepResult {
+  const puzzle = buildPuzzleFromCache(cache);
+  const strategies = createStrategies(puzzle.puzzleSize);
+
+  if (automatedIndex >= strategies.length) {
+    cache?.remove(AUTOMATED_STRATEGY_INDEX_CACHE_KEY);
+    cache?.remove(CELL_STATE_CACHE_KEY);
+    clearSlideNotes(getLastSlide());
+    return { applied: false, slideNumber: new SlidesRenderer().slideCount, strategyName: '' };
+  }
+
+  const strategy = ensureNonNullable(strategies[automatedIndex]);
+  const result = puzzle.tryApplyOneStrategyStep([strategy]);
+
+  let nextStrategyName: string | undefined;
+  if (result.applied) {
+    saveCellState(cache, puzzle);
+    cache?.put(AUTOMATED_STRATEGY_INDEX_CACHE_KEY, '0', CACHE_EXPIRATION_SECONDS);
+    nextStrategyName = ensureNonNullable(strategies[0]).name;
+  } else {
+    const nextIndex = automatedIndex + 1;
+    if (nextIndex < strategies.length) {
+      cache?.put(AUTOMATED_STRATEGY_INDEX_CACHE_KEY, String(nextIndex), CACHE_EXPIRATION_SECONDS);
+      nextStrategyName = ensureNonNullable(strategies[nextIndex]).name;
+    } else {
+      cache?.remove(AUTOMATED_STRATEGY_INDEX_CACHE_KEY);
+      cache?.remove(CELL_STATE_CACHE_KEY);
+      clearSlideNotes(getLastSlide());
+    }
+  }
+
+  return buildApplyStepResult(result.applied, strategy.name, result.slideNumber, result.message, nextStrategyName);
 }
 
 function applyPendingCandidates(
@@ -419,6 +458,22 @@ function applyPendingValue(
     .setForegroundColor(GREEN);
 
   clearShapeText(slide, `CANDIDATES_${cellRef}`);
+}
+
+function buildApplyStepResult(
+  applied: boolean,
+  strategyName: string,
+  slideNumber: number,
+  message?: string,
+  nextStrategyName?: string
+): ApplyStepResult {
+  return {
+    applied,
+    slideNumber,
+    strategyName,
+    ...message !== undefined && { message },
+    ...nextStrategyName !== undefined && { nextStrategyName }
+  };
 }
 
 function buildPuzzleFromCache(cache: GoogleAppsScript.Cache.Cache | null): Puzzle {
@@ -839,14 +894,19 @@ function getLastSlide(): GoogleAppsScript.Slides.Slide {
   return last;
 }
 
-function getPendingStrategyNames(cache: GoogleAppsScript.Cache.Cache | null, puzzleSize: number): string[] {
+function getNextStrategyName(cache: GoogleAppsScript.Cache.Cache | null, puzzleSize: number): string | undefined {
   const initialIndex = parseInt(cache?.get(INITIAL_STRATEGY_INDEX_CACHE_KEY) ?? '-1', 10);
-  const automatedNames = createStrategies(puzzleSize).map((s) => s.name);
   if (initialIndex >= 0) {
-    const initialNames = createInitialStrategies().map((s) => s.name);
-    return [...initialNames.slice(initialIndex), ...automatedNames];
+    const initialStrategies = createInitialStrategies();
+    if (initialIndex < initialStrategies.length) {
+      return ensureNonNullable(initialStrategies[initialIndex]).name;
+    }
+    const automatedStrategies = createStrategies(puzzleSize);
+    return automatedStrategies.length > 0 ? ensureNonNullable(automatedStrategies[0]).name : undefined;
   }
-  return automatedNames;
+  const automatedIndex = parseInt(cache?.get(AUTOMATED_STRATEGY_INDEX_CACHE_KEY) ?? '0', 10);
+  const strategies = createStrategies(puzzleSize);
+  return automatedIndex < strategies.length ? ensureNonNullable(strategies[automatedIndex]).name : undefined;
 }
 
 function getPuzzleState(): PuzzleState {
@@ -1218,6 +1278,7 @@ function showError(source: string, e: unknown): void {
   SlidesApp.getUi().alert(`${source}: ${message}`);
 }
 
+const AUTOMATED_STRATEGY_INDEX_CACHE_KEY = 'automatedStrategyIndex';
 const AXIS_LABEL_MAGENTA = '#C800C8';
 const BLACK = '#000000';
 const CACHE_EXPIRATION_SECONDS = 600;

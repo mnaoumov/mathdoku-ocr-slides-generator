@@ -41,7 +41,8 @@
     var stepCount = 0;
     var activeEntry = null;
     var isInit = false;
-    var pendingNames = [];
+    var nextStrategyName = null;
+    var currentSpinner = null;
 
     function addLogEntry(text, className) {
       if (activeEntry) {
@@ -76,6 +77,7 @@
     }
 
     function onError(err) {
+      if (currentSpinner) { currentSpinner.remove(); currentSpinner = null; }
       finishActiveEntry();
       addLogEntry("Error: " + err.message, "error");
       summaryEl.textContent = "An error occurred.";
@@ -87,6 +89,7 @@
       cancelled = true;
       cancelBtn.disabled = true;
       cancelBtn.textContent = "Cancelling...";
+      if (currentSpinner) { currentSpinner.remove(); currentSpinner = null; }
       if (revertState) {
         finishActiveEntry();
         addLogEntry("Reverting changes...", "active");
@@ -112,35 +115,40 @@
       }
     }
 
-    function spinnerText() {
-      if (pendingNames.length === 0) return "Applying strategy...";
-      return "Testing: " + pendingNames.join(", ") + "...";
-    }
-
     function runChunks() {
       if (cancelled) return;
-      var pendingEntry = addLogEntry(spinnerText(), "active");
+      if (!nextStrategyName) {
+        showDone();
+        return;
+      }
+      var entry = document.createElement("div");
+      entry.className = "log-entry active";
+      entry.textContent = "Testing: " + nextStrategyName + "...";
+      logEl.appendChild(entry);
+      logEl.scrollTop = logEl.scrollHeight;
+      currentSpinner = entry;
       google.script.run
         .withSuccessHandler(function(result) {
-          if (cancelled) return;
-          pendingEntry.remove();
-          activeEntry = null;
-          if (result.skipped) {
-            for (var i = 0; i < result.skipped.length; i++) {
-              addLogEntry(result.skipped[i], "skipped");
-            }
-          }
+          currentSpinner = null;
+          if (cancelled) { entry.remove(); return; }
           if (result.applied) {
             stepCount++;
             var startSlide = result.slideNumber - 1;
-            addLogEntry("Slide " + startSlide + "-" + result.slideNumber + ": " + (result.message || ("Step " + stepCount)), "done");
-            pendingNames = result.pendingNames || [];
-            runChunks();
+            entry.textContent = "Slide " + startSlide + "-" + result.slideNumber + ": " + (result.message || ("Step " + stepCount));
+            entry.className = "log-entry done";
           } else {
-            showDone();
+            entry.textContent = result.strategyName;
+            entry.className = "log-entry skipped";
           }
+          logEl.scrollTop = logEl.scrollHeight;
+          nextStrategyName = result.nextStrategyName || null;
+          runChunks();
         })
-        .withFailureHandler(onError)
+        .withFailureHandler(function(err) {
+          currentSpinner = null;
+          entry.remove();
+          onError(err);
+        })
         .applyOneStep();
     }
 
@@ -148,7 +156,7 @@
       google.script.run
         .withSuccessHandler(function(state) {
           revertState = state;
-          pendingNames = state.pendingNames || [];
+          nextStrategyName = state.nextStrategyName || null;
           runChunks();
         })
         .withFailureHandler(onError)
