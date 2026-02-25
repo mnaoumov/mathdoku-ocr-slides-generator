@@ -4,12 +4,13 @@
   "scripts": {
     "build": "jiti scripts/build.ts",
     "check": "npm run spellcheck && npm run lint && npm run format:check && tsc",
+    "compressMusic": "jiti scripts/compressMusic.ts",
+    "dev": "vite --config vite.config.app.ts",
+    "startSolver": "jiti scripts/startSolver.ts",
     "format:check": "dprint check",
     "format": "dprint fmt",
     "lint:fix": "eslint . --fix",
     "lint": "eslint .",
-    "makeMathdokuSlides:fast": "jiti scripts/makeMathdokuSlides.ts",
-    "makeMathdokuSlides": "npm run build && npm run makeMathdokuSlides:fast",
     "spellcheck": "cspell . --no-progress",
     "test": "vitest run",
     "test:watch": "vitest"
@@ -18,7 +19,6 @@
     "@eslint-community/eslint-plugin-eslint-comments": "^4",
     "@stylistic/eslint-plugin": "^4",
     "@tsconfig/strictest": "^2",
-    "@types/google-apps-script": "^1.0.83",
     "@types/js-yaml": "^4.0.9",
     "@types/node": "^25.2.3",
     "cspell": "^9.6.4",
@@ -28,11 +28,12 @@
     "jiti": "^2.6.1",
     "typescript": "^5.7",
     "typescript-eslint": "^8",
+    "vite-plugin-singlefile": "^2.3.0",
     "vitest": "^4.0.18"
   },
   "dependencies": {
-    "googleapis": "^171.4.0",
     "js-yaml": "^4.1.1",
-    "ora": "^9.3.0"
+    "reveal.js": "^5.2.1",
+    "zod": "^4.3.6"
   }
 }
