@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Mathdoku Solver</title>
+  <link rel="stylesheet" href="./style.css"/>
+</head>
+<body>
+  <div id="file-picker" class="file-picker">
+    <h1>Mathdoku Solver</h1>
+    <p>Select a puzzle YAML file to begin.</p>
+    <input type="file" id="yaml-input" accept=".yaml,.yml"/>
+  </div>
+
+  <div id="app-container" class="hidden">
+    <div class="toolbar">
+      <button id="btn-first" title="Go to first slide (Home)">|&lt;</button>
+      <button id="btn-last" title="Go to last slide (End)">&gt;|</button>
+      <button id="btn-edit" title="Edit cells (E)">Edit</button>
+      <button id="btn-undo" title="Undo (Ctrl+Z)">Undo</button>
+      <button id="btn-export" title="Export static presentation">Export</button>
+    </div>
+    <div class="reveal">
+      <div class="slides"></div>
+    </div>
+    <div id="notes-bar">
+      <textarea id="slide-notes-textarea" rows="2"></textarea>
+    </div>
+  </div>
+
+  <script type="module" src="./main.ts"></script>
+</body>
+</html>
