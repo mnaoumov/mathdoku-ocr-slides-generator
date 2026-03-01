@@ -17,6 +17,7 @@ import { TooSmallForSumStrategy } from './TooSmallForSumStrategy.ts';
 import { UniqueCageMultisetStrategy } from './UniqueCageMultisetStrategy.ts';
 import { FishStrategy } from './FishStrategy.ts';
 import { HiddenSetStrategy } from './HiddenSetStrategy.ts';
+import { InniesOutiesStrategy } from './InniesOutiesStrategy.ts';
 
 const MIN_FISH_SIZE = 2;
 const MIN_NAKED_SET_SIZE = 2;
@@ -44,6 +45,7 @@ export function createStrategies(size: number): Strategy[] {
     new DeterminedByCageStrategy(),
     new NoCageCombinationStrategy(),
     new RequiredCageCandidateStrategy(),
+    new InniesOutiesStrategy(),
     ...Array.from({ length: Math.floor(size / MIN_FISH_SIZE) - 1 }, (_, i) => new FishStrategy(i + MIN_FISH_SIZE))
   ];
 }

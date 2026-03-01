@@ -283,7 +283,8 @@ describe('tryApplyOneStrategyStep', () => {
       'Last cell in cage',
       'Determined by cage',
       'No cage combination',
-      'Required cage candidate'
+      'Required cage candidate',
+      'Innies/Outies'
     ]);
   });
 
