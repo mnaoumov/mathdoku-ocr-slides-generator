@@ -266,6 +266,7 @@ export class Puzzle {
   public readonly puzzleSize: number;
   public readonly rows: readonly House[];
   public readonly title: string;
+  private candidatesInitialized = false;
   private pendingChanges: readonly CellChange[] = [];
   private readonly renderer: PuzzleRenderer;
   private readonly strategies: readonly Strategy[];
@@ -338,9 +339,10 @@ export class Puzzle {
   }
 
   public applyChanges(changes: readonly CellChange[]): void {
-    this.pendingChanges = changes;
+    const augmented = this.augmentCandidateChanges(changes);
+    this.pendingChanges = augmented;
     this.renderer.beginPendingRender(this.puzzleSize);
-    for (const change of changes) {
+    for (const change of augmented) {
       change.renderPending(this.renderer);
     }
   }
@@ -351,6 +353,12 @@ export class Puzzle {
     }
     this.renderer.renderCommittedChanges(this.puzzleSize);
     this.pendingChanges = [];
+    if (!this.candidatesInitialized) {
+      this.candidatesInitialized = this.cells.every((c) => c.isSolved || c.candidateCount > 0);
+    }
+    if (this.candidatesInitialized) {
+      this.validatePostCommit();
+    }
   }
 
   public enter(input: string): void {
@@ -425,6 +433,26 @@ export class Puzzle {
     return { applied: false, skipped, slideNumber: this.renderer.slideCount };
   }
 
+  private augmentCandidateChanges(changes: readonly CellChange[]): readonly CellChange[] {
+    const augmented: CellChange[] = [];
+    for (const change of changes) {
+      augmented.push(change);
+      if (change instanceof CandidatesChange) {
+        const toStrikethrough: number[] = [];
+        const peerValueSet = new Set(change.cell.peerValues);
+        for (const v of change.values) {
+          if (peerValueSet.has(v) || (change.cell.candidateCount > 0 && !change.cell.hasCandidate(v))) {
+            toStrikethrough.push(v);
+          }
+        }
+        if (toStrikethrough.length > 0) {
+          augmented.push(new CandidatesStrikethrough(change.cell, toStrikethrough));
+        }
+      }
+    }
+    return augmented;
+  }
+
   private buildEnterChanges(input: string): CellChange[] {
     const commands = this.parseInput(input);
     for (const cmd of commands) {
@@ -462,19 +490,6 @@ export class Puzzle {
         for (const peer of cell.column.cells) {
           if (peer !== cell) {
             changes.push(new CandidatesStrikethrough(peer, [cmd.operation.value]));
-          }
-        }
-      } else if (cmd.operation.type === 'candidates') {
-        for (const cell of cmd.cells) {
-          const conflicting = cell.peerValues;
-          if (conflicting.length > 0) {
-            changes.push(new CandidatesStrikethrough(cell, [...conflicting]));
-          }
-          if (cell.candidateCount > 0) {
-            const eliminated = cmd.operation.values.filter((v) => !cell.hasCandidate(v));
-            if (eliminated.length > 0) {
-              changes.push(new CandidatesStrikethrough(cell, eliminated));
-            }
           }
         }
       }
@@ -619,6 +634,40 @@ export class Puzzle {
           throw new Error(`Value ${String(v)} exceeds puzzle size ${String(this.puzzleSize)}`);
         }
       }
+    }
+  }
+
+  private validatePostCommit(): void {
+    for (const house of this.houses) {
+      const seen = new Map<number, Cell>();
+      for (const cell of house.cells) {
+        if (cell.value !== null) {
+          const existing = seen.get(cell.value);
+          if (existing) {
+            throw new Error(
+              `Latin square violation: ${existing.ref} and ${cell.ref} both have value ${String(cell.value)} in ${house.type} ${house.label}`
+            );
+          }
+          seen.set(cell.value, cell);
+        }
+      }
+    }
+
+    let hasAnyCandidates = false;
+    const emptyCells: Cell[] = [];
+    for (const cell of this.cells) {
+      if (cell.isSolved) {
+        continue;
+      }
+      if (cell.candidateCount > 0) {
+        hasAnyCandidates = true;
+      } else {
+        emptyCells.push(cell);
+      }
+    }
+    if (hasAnyCandidates && emptyCells.length > 0) {
+      const refs = emptyCells.map((c) => c.ref).join(', ');
+      throw new Error(`Empty candidates on unsolved cells: ${refs}`);
     }
   }
 }

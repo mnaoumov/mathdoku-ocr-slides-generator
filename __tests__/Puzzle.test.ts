@@ -21,14 +21,15 @@ import {
   TrackingRenderer
 } from './puzzleTestHelper.ts';
 
+// Valid 4x4 puzzle: solution is [[1,2,3,4],[2,1,4,3],[3,4,1,2],[4,3,2,1]]
 const SIZE_4_CAGES = [
   { cells: ['A1', 'A2'], operator: Operator.Plus, value: 3 },
   { cells: ['B1', 'B2'], operator: Operator.Minus, value: 1 },
   { cells: ['A3', 'B3'], operator: Operator.Plus, value: 7 },
   { cells: ['A4', 'B4'], operator: Operator.Times, value: 12 },
-  { cells: ['C1', 'C2'], operator: Operator.Plus, value: 5 },
+  { cells: ['C1', 'C2'], operator: Operator.Plus, value: 7 },
   { cells: ['D1', 'D2'], operator: Operator.Minus, value: 1 },
-  { cells: ['C3', 'D3'], operator: Operator.Plus, value: 5 },
+  { cells: ['C3', 'D3'], operator: Operator.Plus, value: 3 },
   { cells: ['C4', 'D4'], operator: Operator.Times, value: 2 }
 ];
 

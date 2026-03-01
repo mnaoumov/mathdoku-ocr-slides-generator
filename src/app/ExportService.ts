@@ -97,7 +97,9 @@ Reveal.initialize({
   }
   Reveal.on('slidechanged', updateNotes);
   updateNotes();
-${musicBase64 ? `  var bin = atob("${musicBase64}");
+${
+    musicBase64
+      ? `  var bin = atob("${musicBase64}");
   var bytes = new Uint8Array(bin.length);
   for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   var audio = new Audio(URL.createObjectURL(new Blob([bytes], { type: 'audio/mpeg' })));
@@ -111,7 +113,9 @@ ${musicBase64 ? `  var bin = atob("${musicBase64}");
     }
     document.addEventListener('click', tryPlay);
     document.addEventListener('keydown', tryPlay);
-  });` : ''}
+  });`
+      : ''
+  }
 });
 ${CLOSE_SCRIPT}
 </body>

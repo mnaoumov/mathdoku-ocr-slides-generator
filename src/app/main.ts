@@ -282,8 +282,8 @@ function onActionComplete(slidesBefore: number): void {
     slideCount: slidesBefore
   });
 
-  // Add new slides with shifted notes: each slide shows the next slide's
-  // notes, matching the init-time shift pattern.
+  // Add new slides with shifted notes: each slide shows the next slide's notes,
+  // Matching the init-time shift pattern.
   const newSlides = currentRenderer.slides.slice(slidesBefore);
   if (slidesBefore > 0 && newSlides.length > 0) {
     slideNotes[slidesBefore - 1] = newSlides[0]?.notes ?? '';
@@ -340,8 +340,8 @@ function initFromPuzzleJson(puzzleJson: PuzzleJson): void {
   currentPuzzle = puzzle;
 
   // Shift notes forward by one: the initial blank grid slide pairs with
-  // the first strategy's pending slide, so each slide shows the notes
-  // for the upcoming change. The last committed slide gets empty notes.
+  // The first strategy's pending slide, so each slide shows the notes
+  // For the upcoming change. The last committed slide gets empty notes.
   slideNotes = renderer.slides.map((_, i) => renderer.slides[i + 1]?.notes ?? '');
   manualNotes = renderer.slides.map(() => '');
 
@@ -421,7 +421,6 @@ function setupKeyboardShortcuts(): void {
       e.preventDefault();
       navigateToLast();
     }
-
   });
 }
 
@@ -515,6 +514,17 @@ async function tryLoadFromServer(): Promise<boolean> {
     return false;
   }
 }
+
+// Global error handlers — surface unhandled errors via alert
+window.addEventListener('error', (e) => {
+  // eslint-disable-next-line no-alert -- Browser alert for unhandled error
+  alert(e.message);
+});
+window.addEventListener('unhandledrejection', (e) => {
+  const message = e.reason instanceof Error ? e.reason.message : String(e.reason);
+  // eslint-disable-next-line no-alert -- Browser alert for unhandled rejection
+  alert(message);
+});
 
 // Initialize on DOM ready
 document.addEventListener('DOMContentLoaded', () => {

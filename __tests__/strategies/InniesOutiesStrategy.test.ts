@@ -118,7 +118,7 @@ describe('InniesOutiesStrategy', () => {
 
     // Row 1: {B1}=2 known, {C1}=3 known, {D1,D2} contribution=4 known
     // {A1,A2} A2 not solved → A1 is the only unknown innie
-    // known = 2+3+4 = 9, remaining = 10-9 = 1, A1 = 1
+    // Known = 2+3+4 = 9, remaining = 10-9 = 1, A1 = 1
     const result = strategy.tryApply(puzzle2);
     expect(result).not.toBeNull();
     const r = ensureNonNullable(result);
@@ -156,7 +156,7 @@ describe('InniesOutiesStrategy', () => {
     }
 
     // Row 1: A1 unknown, B1 unknown, C1=3 known, D1=4 known
-    // remaining = 10 - 3 - 4 = 3
+    // Remaining = 10 - 3 - 4 = 3
     // For 2 cells summing to 3: each can be at most 3-1=2
     const result = strategy.tryApply(puzzle);
     expect(result).not.toBeNull();

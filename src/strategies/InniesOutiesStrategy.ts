@@ -70,7 +70,7 @@ export class InniesOutiesStrategy implements Strategy {
       const contribution = this.getCageContribution(cage, innerCells);
       if (!contribution.known) {
         // Cage contribution unknown, but individually solved cells still
-        // contribute their known values to the house sum
+        // Contribute their known values to the house sum
         for (const cell of contribution.innerCells) {
           if (cell.isSolved) {
             knownSum += ensureNonNullable(cell.value);
@@ -100,7 +100,12 @@ export class InniesOutiesStrategy implements Strategy {
       }
     } else {
       this.eliminateFromMultipleCells(
-        unsolvedUnknown, remaining, puzzle.puzzleSize, houseLabel, allGroups, allNoteEntries
+        unsolvedUnknown,
+        remaining,
+        puzzle.puzzleSize,
+        houseLabel,
+        allGroups,
+        allNoteEntries
       );
     }
   }
@@ -126,9 +131,9 @@ export class InniesOutiesStrategy implements Strategy {
     allNoteEntries: string[]
   ): void {
     // For multiple unknown cells, the minimum possible sum of (cells.length - 1) other cells
-    // is 1+2+...+(cells.length-1) and max is puzzleSize + (puzzleSize-1) + ...
+    // Is 1+2+...+(cells.length-1) and max is puzzleSize + (puzzleSize-1) + ...
     // A cell's value cannot exceed remaining - minOthers
-    // and cannot be less than remaining - maxOthers
+    // And cannot be less than remaining - maxOthers
     const cellCount = cells.length;
     const otherCount = cellCount - 1;
 

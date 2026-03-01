@@ -19,6 +19,7 @@
     "googleapiclient",
     "imread",
     "imwrite",
+    "innie",
     "Innies",
     "kbps",
     "LOCALAPPDATA",

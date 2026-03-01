@@ -12,14 +12,14 @@ import { CandidatesStrikethrough } from '../cellChanges/CandidatesStrikethrough.
 import { generateSubsets } from '../combinatorics.ts';
 import { Cell } from '../Puzzle.ts';
 
-const XWING_SIZE = 2;
+const X_WING_SIZE = 2;
 const SWORDFISH_SIZE = 3;
 const JELLYFISH_SIZE = 4;
 
 const FISH_NAMES: Record<number, string> = {
   [JELLYFISH_SIZE]: 'Jellyfish',
   [SWORDFISH_SIZE]: 'Swordfish',
-  [XWING_SIZE]: 'X-Wing'
+  [X_WING_SIZE]: 'X-Wing'
 };
 
 export class FishStrategy implements Strategy {

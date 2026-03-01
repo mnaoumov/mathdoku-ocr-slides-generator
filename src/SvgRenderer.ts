@@ -353,7 +353,9 @@ export function buildSolveNotesForeignObject(text: string, rect: SolveNotesRect)
   const escaped = escapeXml(text);
   return `<foreignObject x="${String(rect.left)}" y="${String(rect.top)}" width="${String(rect.width)}" height="${String(rect.height)}">`
     + `<div xmlns="http://www.w3.org/1999/xhtml" style="font-family: 'Segoe UI', sans-serif; font-size: ${String(rect.font)}px; `
-    + `color: ${VALUE_GRAY}; padding: ${String(SOLVE_NOTES_PADDING_PT)}px; text-align: left; overflow: hidden; overflow-wrap: break-word; white-space: pre-wrap;">`
+    + `color: ${VALUE_GRAY}; padding: ${
+      String(SOLVE_NOTES_PADDING_PT)
+    }px; text-align: left; overflow: hidden; overflow-wrap: break-word; white-space: pre-wrap;">`
     + `${escaped}</div></foreignObject>`;
 }
 

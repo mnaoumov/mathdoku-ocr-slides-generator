@@ -12,12 +12,12 @@ import {
   fillRemainingCells
 } from '../puzzleTestHelper.ts';
 
-const XWING_SIZE = 2;
+const X_WING_SIZE = 2;
 const SWORDFISH_SIZE = 3;
 
 describe('FishStrategy', () => {
   describe('X-Wing (size 2)', () => {
-    const strategy = new FishStrategy(XWING_SIZE);
+    const strategy = new FishStrategy(X_WING_SIZE);
 
     it('has correct name', () => {
       expect(strategy.name).toBe('X-Wing');
@@ -125,7 +125,7 @@ describe('FishStrategy', () => {
 
     it('returns null when no pair has matching cross-line union', () => {
       // Candidate 3 appears in 3+ cells in every row and column,
-      // so no defining line has at most 2 candidate cells → no X-Wing
+      // So no defining line has at most 2 candidate cells → no X-Wing
       const cages = fillRemainingCells([], 5);
       const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 5 });
 
@@ -231,7 +231,7 @@ describe('FishStrategy', () => {
 
     it('finds Swordfish pattern and eliminates from cross-lines', () => {
       // 6x6 puzzle. Candidate 1 appears in at most 3 cells in each of 3 rows,
-      // and the union of columns is exactly 3.
+      // And the union of columns is exactly 3.
       // Row 1: 1 in columns A, C
       // Row 3: 1 in columns A, E
       // Row 5: 1 in columns C, E
