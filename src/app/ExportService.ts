@@ -86,6 +86,7 @@ Reveal.initialize({
   mouseWheel: true,
   plugins: [RevealNotes],
   slideNumber: true,
+  transition: 'none',
   width: 960
 }).then(function() {
   var notesEl = document.getElementById('slide-notes');

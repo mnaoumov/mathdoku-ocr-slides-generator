@@ -66,6 +66,7 @@ export async function initializeReveal(slides: readonly SlideSnapshot[]): Promis
     plugins: [RevealNotes],
     progress: true,
     slideNumber: true,
+    transition: 'none',
     width: 960
   });
   /* eslint-enable no-magic-numbers -- End Reveal.js config. */

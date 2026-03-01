@@ -9,6 +9,7 @@ declare module 'reveal.js' {
     plugins?: unknown[];
     progress?: boolean;
     slideNumber?: boolean;
+    transition?: string;
     width?: number;
   }
 
