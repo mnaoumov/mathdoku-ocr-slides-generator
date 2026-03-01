@@ -78,20 +78,20 @@ export function getOperatorsForCage(
   hasOperators: boolean,
   cageOperator: Operator,
   cageValue: number,
-  cellCount: number,
+  cells: readonly Cell[],
   puzzleSize: number
 ): Operator[] {
   if (hasOperators && cageOperator !== Operator.Unknown) {
     return [cageOperator];
   }
-  const deduced = deduceOperator(cageValue, cellCount, puzzleSize);
+  const deduced = deduceOperator(cageValue, cells, puzzleSize);
   if (deduced !== Operator.Unknown) {
     return [deduced];
   }
 
-  const possibleOperators = cellCount === BINARY_CELL_COUNT
+  const possibleOperators = cells.length === BINARY_CELL_COUNT
     ? BINARY_OPERATORS
     : MULTI_CELL_OPERATORS;
 
-  return [...possibleOperators].filter((op) => canBeOperator(op, cageValue, cellCount, puzzleSize));
+  return [...possibleOperators].filter((op) => canBeOperator(op, cageValue, cells, puzzleSize));
 }

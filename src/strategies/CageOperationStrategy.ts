@@ -49,7 +49,7 @@ export abstract class CageOperationStrategy implements Strategy {
 
       const effectiveOperator = puzzle.hasOperators && cage.operator !== Operator.Unknown
         ? cage.operator
-        : deduceOperator(cage.value, cage.cells.length, puzzle.puzzleSize);
+        : deduceOperator(cage.value, cage.cells, puzzle.puzzleSize);
 
       if (!this.handlesOperator(effectiveOperator)) {
         continue;

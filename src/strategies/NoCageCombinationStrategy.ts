@@ -43,7 +43,7 @@ export class NoCageCombinationStrategy implements Strategy {
         continue;
       }
 
-      const operators = getOperatorsForCage(puzzle.hasOperators, cage.operator, cage.value, cage.cells.length, puzzle.puzzleSize);
+      const operators = getOperatorsForCage(puzzle.hasOperators, cage.operator, cage.value, cage.cells, puzzle.puzzleSize);
       if (operators.length === 0) {
         continue;
       }
