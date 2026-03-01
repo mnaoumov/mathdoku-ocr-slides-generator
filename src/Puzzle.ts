@@ -25,11 +25,27 @@ export enum Operator {
   Unknown = '?'
 }
 
-export interface CageRaw {
-  readonly cells: readonly string[];
-  readonly operator: Operator;
-  readonly value: number;
-}
+const operatorSchema = z.enum(Operator).default(Operator.Unknown);
+
+const cageRawSchema = z.object({
+  cells: z.array(z.string()).nonempty(),
+  operator: operatorSchema,
+  value: z.number()
+});
+
+const puzzleJsonSchema = z.object({
+  cages: z.array(cageRawSchema),
+  hasOperators: z.boolean().optional(),
+  meta: z.string().optional(),
+  puzzleSize: z.number(),
+  title: z.string().optional()
+});
+
+const puzzleStateSchema = puzzleJsonSchema.extend({
+  hasOperators: z.boolean()
+});
+
+export type CageRaw = Readonly<z.infer<typeof cageRawSchema>>;
 
 export interface CellValueSetter {
   readonly cell: Cell;
@@ -49,13 +65,7 @@ export interface InitPuzzleSlidesOptions {
   readonly title?: string;
 }
 
-export interface PuzzleJson {
-  readonly cages: readonly CageRaw[];
-  readonly hasOperators?: boolean | undefined;
-  readonly meta?: string | undefined;
-  readonly puzzleSize: number;
-  readonly title?: string | undefined;
-}
+export type PuzzleJson = Readonly<z.infer<typeof puzzleJsonSchema>>;
 
 export interface PuzzleOptions {
   readonly cages: readonly CageRaw[];
@@ -81,11 +91,7 @@ export interface PuzzleRenderer {
   readonly slideCount: number;
 }
 
-export interface PuzzleState {
-  readonly cages: readonly CageRaw[];
-  readonly hasOperators: boolean;
-  readonly puzzleSize: number;
-}
+export type PuzzleState = Readonly<z.infer<typeof puzzleStateSchema>>;
 
 export interface StepResult {
   readonly applied: boolean;
@@ -696,26 +702,6 @@ export function initPuzzleSlides(options: InitPuzzleSlidesOptions): Puzzle {
   puzzle.tryApplyAutomatedStrategies();
   return puzzle;
 }
-
-const operatorSchema = z.enum(Operator).default(Operator.Unknown);
-
-const cageRawSchema = z.object({
-  cells: z.array(z.string()).nonempty(),
-  operator: operatorSchema,
-  value: z.number()
-});
-
-const puzzleJsonSchema = z.object({
-  cages: z.array(cageRawSchema),
-  hasOperators: z.boolean().optional(),
-  meta: z.string().optional(),
-  puzzleSize: z.number(),
-  title: z.string().optional()
-});
-
-const puzzleStateSchema = puzzleJsonSchema.extend({
-  hasOperators: z.boolean()
-});
 
 export function parsePuzzleJson(data: unknown): PuzzleJson {
   return puzzleJsonSchema.parse(data);
