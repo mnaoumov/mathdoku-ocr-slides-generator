@@ -172,6 +172,11 @@ export class InniesOutiesStrategy implements Strategy {
   }
 
   private getCageContribution(cage: Cage, innerCells: readonly Cell[]): CageContribution {
+    // Single-cell cage: value is always known regardless of operator
+    if (cage.cells.length === SINGLE_CELL_COUNT) {
+      return { innerCells, known: true, value: cage.value };
+    }
+
     // Only handle + cages for innies/outies sum constraint
     if (cage.operator !== Operator.Plus) {
       return { innerCells, known: false, value: 0 };
@@ -196,3 +201,4 @@ export class InniesOutiesStrategy implements Strategy {
 }
 
 const DIVISOR_FOR_TRIANGULAR = 2;
+const SINGLE_CELL_COUNT = 1;

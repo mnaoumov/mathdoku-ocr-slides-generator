@@ -53,7 +53,7 @@ describe('Puzzle', () => {
 
     it('throws if cell is not in any cage', () => {
       const incompleteCages = [
-        { cells: ['A1'], operator: Operator.Unknown, value: 1 }
+        { cells: ['A1'], operator: Operator.Exact, value: 1 }
       ];
       expect(() => createTestPuzzle({ cages: incompleteCages, hasOperators: true, puzzleSize: 2 })).toThrow('not found in any cage');
     });

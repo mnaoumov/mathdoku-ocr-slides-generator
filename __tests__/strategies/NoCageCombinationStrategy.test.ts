@@ -264,7 +264,7 @@ describe('NoCageCombinationStrategy', () => {
 
   it('skips single-cell cages', () => {
     const cages = fillRemainingCells([
-      { cells: ['A1'], operator: Operator.Unknown, value: 3 }
+      { cells: ['A1'], operator: Operator.Exact, value: 3 }
     ], 4);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 4 });
     puzzle.getCell('A1').setCandidates([1, 2, 3]);

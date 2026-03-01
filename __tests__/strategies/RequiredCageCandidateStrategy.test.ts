@@ -24,8 +24,8 @@ describe('RequiredCageCandidateStrategy', () => {
     // C1 and D1 should have 2 and 4 eliminated
     const cages = fillRemainingCells([
       { cells: ['A1', 'B1'], operator: Operator.Plus, value: 6 },
-      { cells: ['C1'], operator: Operator.Unknown, value: 1 },
-      { cells: ['D1'], operator: Operator.Unknown, value: 3 }
+      { cells: ['C1'], operator: Operator.Exact, value: 1 },
+      { cells: ['D1'], operator: Operator.Exact, value: 3 }
     ], 4);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 4 });
     puzzle.getCell('A1').setCandidates([1, 2, 4]);
@@ -60,8 +60,8 @@ describe('RequiredCageCandidateStrategy', () => {
     // Every combo contains 3 and 4 → both required in column A
     const cages = fillRemainingCells([
       { cells: ['A1', 'A2'], operator: Operator.Plus, value: 7 },
-      { cells: ['A3'], operator: Operator.Unknown, value: 1 },
-      { cells: ['A4'], operator: Operator.Unknown, value: 2 }
+      { cells: ['A3'], operator: Operator.Exact, value: 1 },
+      { cells: ['A4'], operator: Operator.Exact, value: 2 }
     ], 4);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 4 });
     puzzle.getCell('A1').setCandidates([3, 4]);
@@ -122,8 +122,8 @@ describe('RequiredCageCandidateStrategy', () => {
     // Even though 2 and 4 are required by cage, no eliminations possible
     const cages = fillRemainingCells([
       { cells: ['A1', 'B1'], operator: Operator.Plus, value: 6 },
-      { cells: ['C1'], operator: Operator.Unknown, value: 1 },
-      { cells: ['D1'], operator: Operator.Unknown, value: 3 }
+      { cells: ['C1'], operator: Operator.Exact, value: 1 },
+      { cells: ['D1'], operator: Operator.Exact, value: 3 }
     ], 4);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 4 });
     puzzle.getCell('A1').setCandidates([2, 4]);
@@ -137,8 +137,8 @@ describe('RequiredCageCandidateStrategy', () => {
   it('includes correct reason format', () => {
     const cages = fillRemainingCells([
       { cells: ['A1', 'B1'], operator: Operator.Plus, value: 6 },
-      { cells: ['C1'], operator: Operator.Unknown, value: 1 },
-      { cells: ['D1'], operator: Operator.Unknown, value: 3 }
+      { cells: ['C1'], operator: Operator.Exact, value: 1 },
+      { cells: ['D1'], operator: Operator.Exact, value: 3 }
     ], 4);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 4 });
     puzzle.getCell('A1').setCandidates([2, 4]);
@@ -157,7 +157,7 @@ describe('RequiredCageCandidateStrategy', () => {
 
   it('skips single-cell cages', () => {
     const cages = fillRemainingCells([
-      { cells: ['A1'], operator: Operator.Unknown, value: 3 }
+      { cells: ['A1'], operator: Operator.Exact, value: 3 }
     ], 4);
     const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 4 });
     puzzle.getCell('A1').setCandidates([1, 2, 3]);

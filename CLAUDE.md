@@ -140,7 +140,7 @@ This is enforced structurally: `StrategyResult.changeGroups` is an array of `Cha
 
 ### Operator enum
 
-Cage operators use the `Operator` string enum (in `Puzzle.ts`): `Plus = '+'`, `Minus = '-'`, `Times = 'x'`, `Divide = '/'`, `Unknown = '?'`. The OCR normalizes all Unicode variants (x, /, etc.) to these four known operators before writing YAML. `Operator.Unknown` is an internal sentinel for cages without a specified operator (puzzles with `hasOperators: false`); it never appears in YAML. The `'?'` value may appear in serialized `PuzzleState` JSON and is accepted on deserialization. `CageRaw.operator` and `Cage.operator` are always `Operator` (never `undefined`).
+Cage operators use the `Operator` string enum (in `Puzzle.ts`): `Plus = '+'`, `Minus = '-'`, `Times = 'x'`, `Divide = '/'`, `Exact = '='`, `Unknown = '?'`. The OCR normalizes all Unicode variants (x, /, etc.) to these four known operators before writing YAML. `Operator.Exact` is for single-cell cages where the cell value equals the cage value directly (no mathematical operation). `Operator.Unknown` is an internal sentinel for multi-cell cages without a specified operator (puzzles with `hasOperators: false`); it never appears in YAML. Neither `Exact` nor `Unknown` appear in YAML; the zod schema defaults missing operators to `Unknown`. `CageRaw.operator` and `Cage.operator` are always `Operator` (never `undefined`).
 
 - Start solver: `npm run startSolver -- path/to/puzzle.yaml`
 - Run dev server (file picker): `npm run dev`

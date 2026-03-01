@@ -256,6 +256,7 @@ export function opSymbol(op: Operator): string {
       return '+';
     case Operator.Times:
       return 'x';
+    case Operator.Exact:
     case Operator.Unknown:
     default:
       return '?';

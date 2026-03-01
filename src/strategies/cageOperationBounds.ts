@@ -57,6 +57,7 @@ export function canBeOperator(
     }
     case Operator.Times:
       return canBeMultiplication(cageValue, cells, puzzleSize);
+    case Operator.Exact:
     case Operator.Unknown:
     default:
       return false;

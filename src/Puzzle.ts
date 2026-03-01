@@ -19,6 +19,7 @@ import { ensureNonNullable } from './typeGuards.ts';
 
 export enum Operator {
   Divide = '/',
+  Exact = '=',
   Minus = '-',
   Plus = '+',
   Times = 'x',
@@ -31,7 +32,11 @@ const cageRawSchema = z.object({
   cells: z.array(z.string()).nonempty(),
   operator: operatorSchema,
   value: z.number()
-}).readonly();
+}).readonly().transform((cage) =>
+  cage.cells.length === SINGLE_CELL_COUNT
+    ? { ...cage, operator: Operator.Exact }
+    : cage
+);
 
 const puzzleJsonSchema = z.object({
   cages: z.array(cageRawSchema),
@@ -113,6 +118,7 @@ interface EnterCommand {
 }
 
 const CHAR_CODE_A = 65;
+const SINGLE_CELL_COUNT = 1;
 
 export class Cage {
   public readonly operator: Operator;
@@ -137,7 +143,9 @@ export class Cage {
   }
 
   public toString(): string {
-    const opStr = this.operator === Operator.Unknown ? String(this.value) : `${String(this.value)}${this.operator}`;
+    const opStr = this.operator === Operator.Exact || this.operator === Operator.Unknown
+      ? String(this.value)
+      : `${String(this.value)}${this.operator}`;
     const cellRefs = this.cells.map(String).join(',');
     return `Cage(${opStr} ${cellRefs})`;
   }
@@ -336,6 +344,10 @@ export class Puzzle {
         return ensureNonNullable(ensureNonNullable(grid[parsed.rowId - 1])[parsed.columnId - 1]);
       });
       cageCells.sort((a, b) => a.row.id - b.row.id || a.column.id - b.column.id);
+      if (cageCells.length === SINGLE_CELL_COUNT && raw.operator !== Operator.Exact) {
+        const cellRef = ensureNonNullable(cageCells[0]).ref;
+        throw new Error(`Single-cell cage ${cellRef} must use Operator.Exact, got '${raw.operator}'`);
+      }
       cages.push(new Cage(cageId, cageCells, raw.operator, raw.value));
     }
     this.cages = cages;

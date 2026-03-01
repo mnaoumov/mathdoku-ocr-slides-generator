@@ -100,8 +100,8 @@ describe('InniesOutiesStrategy', () => {
 
     const cages2 = [
       { cells: ['A1', 'A2'], operator: Operator.Plus, value: 3 },
-      { cells: ['B1'], operator: Operator.Plus, value: 2 },
-      { cells: ['C1'], operator: Operator.Plus, value: 3 },
+      { cells: ['B1'], operator: Operator.Exact, value: 2 },
+      { cells: ['C1'], operator: Operator.Exact, value: 3 },
       { cells: ['D1', 'D2'], operator: Operator.Plus, value: 8 },
       { cells: ['B2', 'C2'], operator: Operator.Plus, value: 5 },
       { cells: ['A3', 'A4'], operator: Operator.Plus, value: 5 },
@@ -142,8 +142,8 @@ describe('InniesOutiesStrategy', () => {
     const cages = [
       { cells: ['A1', 'A2'], operator: Operator.Plus, value: 3 },
       { cells: ['B1', 'B2'], operator: Operator.Plus, value: 5 },
-      { cells: ['C1'], operator: Operator.Plus, value: 3 },
-      { cells: ['D1'], operator: Operator.Plus, value: 4 },
+      { cells: ['C1'], operator: Operator.Exact, value: 3 },
+      { cells: ['D1'], operator: Operator.Exact, value: 4 },
       { cells: ['C2', 'D2'], operator: Operator.Plus, value: 5 },
       { cells: ['A3', 'A4'], operator: Operator.Plus, value: 5 },
       { cells: ['B3', 'B4'], operator: Operator.Plus, value: 5 },
@@ -219,8 +219,8 @@ describe('InniesOutiesStrategy', () => {
     // So A1+B1 should sum to 3 → can eliminate candidates > 2
     const cages = [
       { cells: ['A1', 'B1'], operator: Operator.Times, value: 2 },
-      { cells: ['C1'], operator: Operator.Plus, value: 3 },
-      { cells: ['D1'], operator: Operator.Plus, value: 4 },
+      { cells: ['C1'], operator: Operator.Exact, value: 3 },
+      { cells: ['D1'], operator: Operator.Exact, value: 4 },
       { cells: ['A2', 'B2'], operator: Operator.Plus, value: 5 },
       { cells: ['C2', 'D2'], operator: Operator.Plus, value: 5 },
       { cells: ['A3', 'A4'], operator: Operator.Plus, value: 5 },
@@ -247,17 +247,17 @@ describe('InniesOutiesStrategy', () => {
 
   it('subtracts solved cells in non-plus cages from house total', () => {
     // 4x4 puzzle. Row 1 total = 10
-    // {A1} single cell, Operator.Unknown (value 4) — A1 solved=4
+    // {A1} single cell, Operator.Exact (value 4) — A1 solved=4
     // {B1,B2} 2x (multiplication) — non-plus, but B1 solved=3
     // {C1,C2} 5+ — C2 unsolved → C1 is unknown innie
-    // {D1} single cell, Operator.Unknown (value 2) — D1 solved=2
+    // {D1} single cell, Operator.Exact (value 2) — D1 solved=2
     // Solved cells: A1=4, B1=3, D1=2 → knownSum = 4+3+2 = 9
     // Remaining = 10-9 = 1 → C1 = 1
     const cages = [
-      { cells: ['A1'], operator: Operator.Unknown, value: 4 },
+      { cells: ['A1'], operator: Operator.Exact, value: 4 },
       { cells: ['B1', 'B2'], operator: Operator.Times, value: 6 },
       { cells: ['C1', 'C2'], operator: Operator.Plus, value: 5 },
-      { cells: ['D1'], operator: Operator.Unknown, value: 2 },
+      { cells: ['D1'], operator: Operator.Exact, value: 2 },
       { cells: ['A2', 'D2'], operator: Operator.Plus, value: 5 },
       { cells: ['A3', 'A4'], operator: Operator.Plus, value: 5 },
       { cells: ['B3', 'B4'], operator: Operator.Plus, value: 5 },
@@ -283,8 +283,8 @@ describe('InniesOutiesStrategy', () => {
   it('includes correct reason format for single cell', () => {
     const cages = [
       { cells: ['A1', 'A2'], operator: Operator.Plus, value: 3 },
-      { cells: ['B1'], operator: Operator.Plus, value: 2 },
-      { cells: ['C1'], operator: Operator.Plus, value: 3 },
+      { cells: ['B1'], operator: Operator.Exact, value: 2 },
+      { cells: ['C1'], operator: Operator.Exact, value: 3 },
       { cells: ['D1', 'D2'], operator: Operator.Plus, value: 8 },
       { cells: ['B2', 'C2'], operator: Operator.Plus, value: 5 },
       { cells: ['A3', 'A4'], operator: Operator.Plus, value: 5 },

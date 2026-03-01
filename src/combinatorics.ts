@@ -116,6 +116,7 @@ export function evaluateTuple(tuple: readonly number[], operator: Operator): nul
       }
       return product;
     }
+    case Operator.Exact:
     case Operator.Unknown:
     default:
       return null;

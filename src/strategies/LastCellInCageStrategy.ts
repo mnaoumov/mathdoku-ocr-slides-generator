@@ -178,6 +178,7 @@ export class LastCellInCageStrategy implements Strategy {
         return this.computeForAddition(solvedValues, cageValue, puzzleSize);
       case Operator.Times:
         return this.computeForMultiplication(solvedValues, cageValue, puzzleSize);
+      case Operator.Exact:
       case Operator.Unknown:
       default:
         return new Set<number>();
