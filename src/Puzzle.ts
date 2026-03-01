@@ -31,7 +31,7 @@ const cageRawSchema = z.object({
   cells: z.array(z.string()).nonempty(),
   operator: operatorSchema,
   value: z.number()
-});
+}).readonly();
 
 const puzzleJsonSchema = z.object({
   cages: z.array(cageRawSchema),
@@ -39,13 +39,17 @@ const puzzleJsonSchema = z.object({
   meta: z.string().optional(),
   puzzleSize: z.number(),
   title: z.string().optional()
-});
+}).readonly();
 
-const puzzleStateSchema = puzzleJsonSchema.extend({
-  hasOperators: z.boolean()
-});
+const puzzleStateSchema = z.object({
+  cages: z.array(cageRawSchema),
+  hasOperators: z.boolean(),
+  meta: z.string().optional(),
+  puzzleSize: z.number(),
+  title: z.string().optional()
+}).readonly();
 
-export type CageRaw = Readonly<z.infer<typeof cageRawSchema>>;
+export type CageRaw = z.infer<typeof cageRawSchema>;
 
 export interface CellValueSetter {
   readonly cell: Cell;
@@ -65,7 +69,7 @@ export interface InitPuzzleSlidesOptions {
   readonly title?: string;
 }
 
-export type PuzzleJson = Readonly<z.infer<typeof puzzleJsonSchema>>;
+export type PuzzleJson = z.infer<typeof puzzleJsonSchema>;
 
 export interface PuzzleOptions {
   readonly cages: readonly CageRaw[];
@@ -91,7 +95,7 @@ export interface PuzzleRenderer {
   readonly slideCount: number;
 }
 
-export type PuzzleState = Readonly<z.infer<typeof puzzleStateSchema>>;
+export type PuzzleState = z.infer<typeof puzzleStateSchema>;
 
 export interface StepResult {
   readonly applied: boolean;
