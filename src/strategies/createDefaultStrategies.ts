@@ -36,8 +36,8 @@ export function createStrategies(size: number): Strategy[] {
   return [
     new SingleCandidateStrategy(),
     new HiddenSingleStrategy(),
-    ...Array.from({ length: size - MIN_NAKED_SET_SIZE }, (_, i) => new NakedSetStrategy(i + MIN_NAKED_SET_SIZE)),
     new LastCellInCageStrategy(),
+    ...Array.from({ length: size - MIN_NAKED_SET_SIZE }, (_, i) => new NakedSetStrategy(i + MIN_NAKED_SET_SIZE)),
     new DeterminedByCageStrategy(),
     new NoCageCombinationStrategy(),
     new RequiredCageCandidateStrategy(),
