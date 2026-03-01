@@ -1,3 +1,5 @@
+import { z } from 'zod';
+
 import type { CellChange } from './cellChanges/CellChange.ts';
 import type { CellOperation } from './parsers.ts';
 import type { Strategy } from './strategies/Strategy.ts';
@@ -9,6 +11,7 @@ import { ValueChange } from './cellChanges/ValueChange.ts';
 import { evaluateTuple } from './combinatorics.ts';
 import {
   getCellRef,
+  parseCellRef,
   parseOperation
 } from './parsers.ts';
 import { buildNote } from './strategies/Strategy.ts';
@@ -48,10 +51,10 @@ export interface InitPuzzleSlidesOptions {
 
 export interface PuzzleJson {
   readonly cages: readonly CageRaw[];
-  readonly hasOperators?: boolean;
-  readonly meta?: string;
+  readonly hasOperators?: boolean | undefined;
+  readonly meta?: string | undefined;
   readonly puzzleSize: number;
-  readonly title?: string;
+  readonly title?: string | undefined;
 }
 
 export interface PuzzleOptions {
@@ -694,68 +697,30 @@ export function initPuzzleSlides(options: InitPuzzleSlidesOptions): Puzzle {
   return puzzle;
 }
 
+const operatorSchema = z.enum(Operator).default(Operator.Unknown);
+
+const cageRawSchema = z.object({
+  cells: z.array(z.string()).nonempty(),
+  operator: operatorSchema,
+  value: z.number()
+});
+
+const puzzleJsonSchema = z.object({
+  cages: z.array(cageRawSchema),
+  hasOperators: z.boolean().optional(),
+  meta: z.string().optional(),
+  puzzleSize: z.number(),
+  title: z.string().optional()
+});
+
+const puzzleStateSchema = puzzleJsonSchema.extend({
+  hasOperators: z.boolean()
+});
+
 export function parsePuzzleJson(data: unknown): PuzzleJson {
-  if (typeof data !== 'object' || data === null) {
-    throw new Error('Puzzle data must be an object');
-  }
-  const obj = data as Record<string, unknown>;
-  if (typeof obj['puzzleSize'] !== 'number') {
-    throw new Error('puzzleSize must be a number');
-  }
-  if (!Array.isArray(obj['cages'])) {
-    throw new Error('cages must be an array');
-  }
-  const cages = (obj['cages'] as unknown[]).map((raw, i) => validateCageRaw(raw, i));
-  return {
-    cages,
-    puzzleSize: obj['puzzleSize'],
-    ...(typeof obj['hasOperators'] === 'boolean' && { hasOperators: obj['hasOperators'] }),
-    ...(typeof obj['meta'] === 'string' && { meta: obj['meta'] }),
-    ...(typeof obj['title'] === 'string' && { title: obj['title'] })
-  };
+  return puzzleJsonSchema.parse(data);
 }
 
 export function parsePuzzleState(data: unknown): PuzzleState {
-  const json = parsePuzzleJson(data);
-  const obj = data as Record<string, unknown>;
-  if (typeof obj['hasOperators'] !== 'boolean') {
-    throw new Error('hasOperators must be a boolean');
-  }
-  return {
-    cages: json.cages,
-    hasOperators: obj['hasOperators'],
-    puzzleSize: json.puzzleSize
-  };
+  return puzzleStateSchema.parse(data);
 }
-
-const VALID_OPERATORS = new Set<string>([Operator.Divide, Operator.Minus, Operator.Plus, Operator.Times, Operator.Unknown]);
-
-function validateCageRaw(data: unknown, index: number): CageRaw {
-  if (typeof data !== 'object' || data === null) {
-    throw new Error(`cages[${String(index)}] must be an object`);
-  }
-  const obj = data as Record<string, unknown>;
-  if (!Array.isArray(obj['cells']) || obj['cells'].length === 0) {
-    throw new Error(`cages[${String(index)}].cells must be a non-empty array`);
-  }
-  if (typeof obj['value'] !== 'number') {
-    throw new Error(`cages[${String(index)}].value must be a number`);
-  }
-  const rawOp = obj['operator'];
-  let operator: Operator;
-  if (rawOp === undefined) {
-    operator = Operator.Unknown;
-  } else if (typeof rawOp === 'string' && VALID_OPERATORS.has(rawOp)) {
-    operator = rawOp as Operator;
-  } else {
-    throw new Error(`cages[${String(index)}].operator must be one of +, -, x, /`);
-  }
-  return {
-    cells: obj['cells'] as string[],
-    operator,
-    value: obj['value']
-  };
-}
-
-// Re-export parseCellRef for use outside
-import { parseCellRef } from './parsers.ts';
