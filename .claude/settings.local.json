@@ -21,7 +21,10 @@
       "Bash(PYTHONIOENCODING=utf-8 uv run pytest:*)",
       "*",
       "Bash",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "WebFetch(domain:zod.dev)",
+      "WebFetch(domain:cdn.jsdelivr.net)",
+      "Read"
     ]
   }
 }
