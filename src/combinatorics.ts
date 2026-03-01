@@ -131,7 +131,7 @@ export function generateSubsets<T>(items: readonly T[], subsetSize: number): T[]
   }
 
   const results: T[][] = [];
-  const indices: number[] = Array.from({ length: subsetSize }, (_, i) => i);
+  const indices: number[] = range(0, subsetSize);
 
   for (;;) {
     results.push(indices.map((idx) => ensureNonNullable(items[idx])));
@@ -150,4 +150,12 @@ export function generateSubsets<T>(items: readonly T[], subsetSize: number): T[]
   }
 
   return results;
+}
+
+export function range(start: number, endExclusive: number): number[] {
+  const result: number[] = [];
+  for (let i = start; i < endExclusive; i++) {
+    result.push(i);
+  }
+  return result;
 }

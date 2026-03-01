@@ -5,12 +5,13 @@ import type {
 } from './Strategy.ts';
 
 import { CandidatesChange } from '../cellChanges/CandidatesChange.ts';
+import { range } from '../combinatorics.ts';
 
 export class FillAllCandidatesStrategy implements Strategy {
   public readonly name = 'Filling all candidates';
 
   public tryApply(puzzle: Puzzle): null | StrategyResult {
-    const allValues = Array.from({ length: puzzle.puzzleSize }, (_, i) => i + 1);
+    const allValues = range(1, puzzle.puzzleSize + 1);
     const changes = puzzle.cells
       .filter((cell) => !cell.isSolved)
       .map((cell) => new CandidatesChange(cell, allValues));

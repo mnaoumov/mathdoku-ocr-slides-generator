@@ -1,5 +1,6 @@
 import type { Strategy } from './Strategy.ts';
 
+import { range } from '../combinatorics.ts';
 import { DeterminedByCageStrategy } from './DeterminedByCageStrategy.ts';
 import { DoesNotDivideProductStrategy } from './DoesNotDivideProductStrategy.ts';
 import { FillAllCandidatesStrategy } from './FillAllCandidatesStrategy.ts';
@@ -35,17 +36,17 @@ export function createInitialStrategies(): Strategy[] {
   ];
 }
 
-export function createStrategies(size: number): Strategy[] {
+export function createStrategies(puzzleSize: number): Strategy[] {
   return [
     new SingleCandidateStrategy(),
     new HiddenSingleStrategy(),
     new LastCellInCageStrategy(),
-    ...Array.from({ length: size - MIN_NAKED_SET_SIZE }, (_, i) => new NakedSetStrategy(i + MIN_NAKED_SET_SIZE)),
-    ...Array.from({ length: size - MIN_NAKED_SET_SIZE }, (_, i) => new HiddenSetStrategy(i + MIN_NAKED_SET_SIZE)),
+    ...range(MIN_NAKED_SET_SIZE, puzzleSize).map((n) => new NakedSetStrategy(n)),
+    ...range(MIN_NAKED_SET_SIZE, puzzleSize).map((n) => new HiddenSetStrategy(n)),
     new DeterminedByCageStrategy(),
     new NoCageCombinationStrategy(),
     new RequiredCageCandidateStrategy(),
     new InniesOutiesStrategy(),
-    ...Array.from({ length: Math.floor(size / MIN_FISH_SIZE) - 1 }, (_, i) => new FishStrategy(i + MIN_FISH_SIZE))
+    ...range(MIN_FISH_SIZE, Math.floor(puzzleSize / MIN_FISH_SIZE) + 1).map((n) => new FishStrategy(n))
   ];
 }
