@@ -9,7 +9,7 @@ import {
   Puzzle
 } from '../src/Puzzle.ts';
 
-export interface CreateTestPuzzleOptions {
+export interface CreateTestPuzzleParams {
   readonly cages: readonly CageRaw[];
   readonly hasOperators: boolean;
   readonly initialCandidates?: Map<string, Set<number>>;
@@ -72,7 +72,7 @@ export class TrackingRenderer implements PuzzleRenderer {
 
 const CHAR_CODE_A = 65;
 
-export function createTestPuzzle(options: CreateTestPuzzleOptions): Puzzle {
+export function createTestPuzzle(options: CreateTestPuzzleParams): Puzzle {
   return new Puzzle({
     cages: options.cages,
     hasOperators: options.hasOperators,

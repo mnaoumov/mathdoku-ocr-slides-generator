@@ -61,7 +61,7 @@ export interface CellValueSetter {
   readonly value: number;
 }
 
-export interface InitPuzzleSlidesOptions {
+export interface InitPuzzleSlidesParams {
   readonly cages: readonly CageRaw[];
   readonly hasOperators: boolean;
   readonly initialStrategies: readonly Strategy[];
@@ -74,7 +74,7 @@ export interface InitPuzzleSlidesOptions {
 
 export type PuzzleJson = z.infer<typeof puzzleJsonSchema>;
 
-export interface PuzzleOptions {
+export interface PuzzleParams {
   readonly cages: readonly CageRaw[];
   readonly hasOperators: boolean;
   readonly initialCandidates?: Map<string, Set<number>>;
@@ -287,7 +287,7 @@ export class Puzzle {
   private readonly renderer: PuzzleRenderer;
   private readonly strategies: readonly Strategy[];
 
-  public constructor(options: PuzzleOptions) {
+  public constructor(options: PuzzleParams) {
     const { cages: cagesRaw, hasOperators, initialCandidates, initialValues, meta = '', puzzleSize, renderer, strategies, title = '' } = options;
     this.hasOperators = hasOperators;
     this.meta = meta;
@@ -688,7 +688,7 @@ export class Puzzle {
   }
 }
 
-export function initPuzzleSlides(options: InitPuzzleSlidesOptions): Puzzle {
+export function initPuzzleSlides(options: InitPuzzleSlidesParams): Puzzle {
   const puzzle = new Puzzle({
     cages: options.cages,
     hasOperators: options.hasOperators,

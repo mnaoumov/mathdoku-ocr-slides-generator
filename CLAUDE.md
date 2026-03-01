@@ -119,8 +119,8 @@ Auto-saves after every action. Keyed by puzzle title with storage keys per puzzl
 - Single quotes, no trailing commas, 1tbs brace style, semicolons required
 - `.editorconfig`: 2-space indent, LF line endings, UTF-8
 - **Enums over union types**: Use `enum X { A = 'a', B = 'b' }` instead of `type X = 'a' | 'b'`. No inline union type parameters — define a named enum.
-- **Named types only**: No anonymous return types (e.g., `{ max: number; min: number }`) or anonymous argument object types. Use named interfaces (`Bounds`, `FooOptions`, etc.).
-- **Argument object pattern**: Functions with 5+ parameters should take a single options object. Name the interface `...Options` (not `...Params`).
+- **Named types only**: No anonymous return types or anonymous argument object types. Use named interfaces.
+- **Argument object pattern**: Functions with 5+ parameters should take a single params object. Name the interface `...Params`. Return type interfaces use `...Result`.
 
 ### Build
 

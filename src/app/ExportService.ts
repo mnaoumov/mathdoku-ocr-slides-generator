@@ -13,7 +13,7 @@ const CLOSE_SCRIPT = ['<', '/script>'].join('');
 const MUSIC_BASE64_PATH = '/music.b64';
 const SVG_CLOSE_TAG = '</svg>';
 
-export interface ExportOptions {
+export interface ExportParams {
   readonly manualNotes: readonly string[];
   readonly slideNotes: readonly string[];
   readonly slides: readonly SlideSnapshot[];
@@ -21,7 +21,7 @@ export interface ExportOptions {
   readonly title: string;
 }
 
-export async function exportPresentation(options: ExportOptions): Promise<void> {
+export async function exportPresentation(options: ExportParams): Promise<void> {
   const { manualNotes, slideNotes, slides, solveNotesRect, title } = options;
   const slidesHtml = slides.map((slide, index) => {
     let svg = slide.svg;

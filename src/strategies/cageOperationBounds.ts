@@ -26,7 +26,7 @@ export interface Bounds {
   readonly min: number;
 }
 
-export interface LatinSquareBoundOptions {
+export interface LatinSquareBoundParams {
   readonly aggregateType: AggregateType;
   readonly boundType: BoundType;
   readonly otherCells: readonly Cell[];
@@ -35,7 +35,7 @@ export interface LatinSquareBoundOptions {
   readonly value: number;
 }
 
-interface HouseBoundOptions extends LatinSquareBoundOptions {
+interface HouseBoundParams extends LatinSquareBoundParams {
   readonly houseType: HouseType;
 }
 
@@ -63,7 +63,7 @@ export function canBeOperator(
   }
 }
 
-export function computeLatinSquareBound(options: LatinSquareBoundOptions): number {
+export function computeLatinSquareBound(options: LatinSquareBoundParams): number {
   const rowBound = computeHouseBound({ ...options, houseType: HouseType.Row });
   const colBound = computeHouseBound({ ...options, houseType: HouseType.Column });
   return options.boundType === BoundType.Min ? Math.max(rowBound, colBound) : Math.min(rowBound, colBound);
@@ -152,7 +152,7 @@ function computeCageSumBounds(
   };
 }
 
-function computeHouseBound(options: HouseBoundOptions): number {
+function computeHouseBound(options: HouseBoundParams): number {
   const { aggregateType, boundType, houseType, otherCells, puzzleSize, targetCell, value } = options;
   const groups = new Map<number, Cell[]>();
   for (const cell of otherCells) {

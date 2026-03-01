@@ -18,7 +18,7 @@ export interface CageConstraintContext {
   readonly puzzleSize: number;
 }
 
-export interface CageTupleOptions {
+export interface CageTupleParams {
   readonly cells: readonly Cell[];
   readonly operator: Operator;
   readonly puzzleSize: number;
@@ -96,7 +96,7 @@ export function collectCageTuples(
   return tuples;
 }
 
-export function computeValidCageTuples(options: CageTupleOptions): number[][] {
+export function computeValidCageTuples(options: CageTupleParams): number[][] {
   const { cells, operator, puzzleSize, value } = options;
   const tuples: number[][] = [];
   const numCells = cells.length;
