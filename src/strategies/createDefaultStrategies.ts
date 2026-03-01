@@ -7,6 +7,7 @@ import { HiddenSingleStrategy } from './HiddenSingleStrategy.ts';
 import { LastCellInCageStrategy } from './LastCellInCageStrategy.ts';
 import { NakedSetStrategy } from './NakedSetStrategy.ts';
 import { NoCageCombinationStrategy } from './NoCageCombinationStrategy.ts';
+import { RequiredCageCandidateStrategy } from './RequiredCageCandidateStrategy.ts';
 import { SingleCandidateStrategy } from './SingleCandidateStrategy.ts';
 import { SingleCellCageStrategy } from './SingleCellCageStrategy.ts';
 import { TooBigForProductStrategy } from './TooBigForProductStrategy.ts';
@@ -14,6 +15,7 @@ import { TooBigForSumStrategy } from './TooBigForSumStrategy.ts';
 import { TooSmallForProductStrategy } from './TooSmallForProductStrategy.ts';
 import { TooSmallForSumStrategy } from './TooSmallForSumStrategy.ts';
 import { UniqueCageMultisetStrategy } from './UniqueCageMultisetStrategy.ts';
+import { XWingStrategy } from './XWingStrategy.ts';
 
 const MIN_NAKED_SET_SIZE = 2;
 
@@ -34,9 +36,11 @@ export function createStrategies(size: number): Strategy[] {
   return [
     new SingleCandidateStrategy(),
     new HiddenSingleStrategy(),
+    ...Array.from({ length: size - MIN_NAKED_SET_SIZE }, (_, i) => new NakedSetStrategy(i + MIN_NAKED_SET_SIZE)),
     new LastCellInCageStrategy(),
     new DeterminedByCageStrategy(),
     new NoCageCombinationStrategy(),
-    ...Array.from({ length: size - MIN_NAKED_SET_SIZE }, (_, i) => new NakedSetStrategy(i + MIN_NAKED_SET_SIZE))
+    new RequiredCageCandidateStrategy(),
+    new XWingStrategy()
   ];
 }

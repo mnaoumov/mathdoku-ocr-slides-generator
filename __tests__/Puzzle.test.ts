@@ -282,7 +282,9 @@ describe('tryApplyOneStrategyStep', () => {
       'Hidden single',
       'Last cell in cage',
       'Determined by cage',
-      'No cage combination'
+      'No cage combination',
+      'Required cage candidate',
+      'X-Wing'
     ]);
   });
 
