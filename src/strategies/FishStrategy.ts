@@ -10,7 +10,10 @@ import type {
 
 import { CandidatesStrikethrough } from '../cellChanges/CandidatesStrikethrough.ts';
 import { generateSubsets } from '../combinatorics.ts';
-import { Cell } from '../Puzzle.ts';
+import {
+  Cell,
+  HouseType
+} from '../Puzzle.ts';
 
 const X_WING_SIZE = 2;
 const SWORDFISH_SIZE = 3;
@@ -34,8 +37,8 @@ export class FishStrategy implements Strategy {
     const allNoteEntries: string[] = [];
 
     for (let value = 1; value <= puzzle.puzzleSize; value++) {
-      this.findFish(puzzle.columns, puzzle.rows, value, 'column', allGroups, allNoteEntries);
-      this.findFish(puzzle.rows, puzzle.columns, value, 'row', allGroups, allNoteEntries);
+      this.findFish(puzzle.columns, puzzle.rows, value, HouseType.Column, allGroups, allNoteEntries);
+      this.findFish(puzzle.rows, puzzle.columns, value, HouseType.Row, allGroups, allNoteEntries);
     }
 
     if (allGroups.length === 0) {
@@ -52,7 +55,7 @@ export class FishStrategy implements Strategy {
     definingLines: readonly House[],
     crossLines: readonly House[],
     value: number,
-    definingType: 'column' | 'row',
+    definingType: HouseType,
     allGroups: ChangeGroup[],
     allNoteEntries: string[]
   ): void {
@@ -70,7 +73,7 @@ export class FishStrategy implements Strategy {
       const crossIdSet = new Set<number>();
       for (const cells of candidateCellsByLine) {
         for (const cell of cells) {
-          crossIdSet.add(definingType === 'column' ? cell.row.id : cell.column.id);
+          crossIdSet.add(definingType === HouseType.Column ? cell.row.id : cell.column.id);
         }
       }
 
@@ -100,7 +103,7 @@ export class FishStrategy implements Strategy {
 
       changes.sort((a, b) => Cell.compare(a.cell, b.cell));
 
-      const crossType = definingType === 'column' ? 'row' : 'column';
+      const crossType = definingType === HouseType.Column ? HouseType.Row : HouseType.Column;
       const lineLabels = subset.map((line) => line.label).join('');
       const crossLabels = [...crossIdSet].sort((a, b) => a - b)
         .map((id) => crossLines[id - 1]?.label ?? String(id)).join('');

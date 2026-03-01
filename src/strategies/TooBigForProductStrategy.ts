@@ -2,7 +2,9 @@ import type { CageContext } from './CageOperationStrategy.ts';
 
 import { Operator } from '../Puzzle.ts';
 import {
+  AggregateType,
   BINARY_CELL_COUNT,
+  BoundType,
   computeLatinSquareBound
 } from './cageOperationBounds.ts';
 import { CageOperationStrategy } from './CageOperationStrategy.ts';
@@ -30,7 +32,7 @@ export class TooBigForProductStrategy extends CageOperationStrategy {
     if (ctx.otherCells.length === 0 || ctx.cellCount === BINARY_CELL_COUNT) {
       return false;
     }
-    const minOtherProduct = computeLatinSquareBound(ctx.cell, ctx.otherCells, value, ctx.puzzleSize, 'product', 'min');
+    const minOtherProduct = computeLatinSquareBound(ctx.cell, ctx.otherCells, value, ctx.puzzleSize, AggregateType.Product, BoundType.Min);
     return quotient < minOtherProduct;
   }
 }

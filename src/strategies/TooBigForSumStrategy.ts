@@ -1,7 +1,11 @@
 import type { CageContext } from './CageOperationStrategy.ts';
 
 import { Operator } from '../Puzzle.ts';
-import { computeLatinSquareBound } from './cageOperationBounds.ts';
+import {
+  AggregateType,
+  BoundType,
+  computeLatinSquareBound
+} from './cageOperationBounds.ts';
 import { CageOperationStrategy } from './CageOperationStrategy.ts';
 
 export class TooBigForSumStrategy extends CageOperationStrategy {
@@ -20,7 +24,7 @@ export class TooBigForSumStrategy extends CageOperationStrategy {
     if (ctx.otherCells.length === 0) {
       return remainder < 0;
     }
-    const minOtherSum = computeLatinSquareBound(ctx.cell, ctx.otherCells, value, ctx.puzzleSize, 'sum', 'min');
+    const minOtherSum = computeLatinSquareBound(ctx.cell, ctx.otherCells, value, ctx.puzzleSize, AggregateType.Sum, BoundType.Min);
     return remainder < minOtherSum;
   }
 }

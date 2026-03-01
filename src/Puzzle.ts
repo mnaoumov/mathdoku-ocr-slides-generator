@@ -49,14 +49,17 @@ const puzzleStateSchema = z.object({
   title: z.string().optional()
 }).readonly();
 
+export enum HouseType {
+  Column = 'column',
+  Row = 'row'
+}
+
 export type CageRaw = z.infer<typeof cageRawSchema>;
 
 export interface CellValueSetter {
   readonly cell: Cell;
   readonly value: number;
 }
-
-export type HouseType = 'column' | 'row';
 
 export interface InitPuzzleSlidesOptions {
   readonly cages: readonly CageRaw[];
@@ -256,7 +259,7 @@ export class House {
   public readonly label: string;
 
   public constructor(public readonly type: HouseType, public readonly id: number, public readonly cells: readonly Cell[]) {
-    this.label = type === 'row' ? String(id) : String.fromCharCode(CHAR_CODE_A + id - 1);
+    this.label = type === HouseType.Row ? String(id) : String.fromCharCode(CHAR_CODE_A + id - 1);
   }
 
   public getCell(id: number): Cell {
@@ -264,7 +267,7 @@ export class House {
   }
 
   public toString(): string {
-    return `${this.type === 'row' ? 'Row' : 'Column'} ${this.label}`;
+    return `${this.type === HouseType.Row ? 'Row' : 'Column'} ${this.label}`;
   }
 }
 
@@ -318,8 +321,8 @@ export class Puzzle {
     const rows: House[] = [];
     const columns: House[] = [];
     for (let houseId = 1; houseId <= puzzleSize; houseId++) {
-      rows.push(new House('row', houseId, ensureNonNullable(grid[houseId - 1])));
-      columns.push(new House('column', houseId, grid.map((gridRow) => ensureNonNullable(gridRow[houseId - 1]))));
+      rows.push(new House(HouseType.Row, houseId, ensureNonNullable(grid[houseId - 1])));
+      columns.push(new House(HouseType.Column, houseId, grid.map((gridRow) => ensureNonNullable(gridRow[houseId - 1]))));
     }
     this.rows = rows;
     this.columns = columns;

@@ -1,13 +1,25 @@
 import type {
   Cell,
-  House,
-  HouseType
+  House
 } from '../Puzzle.ts';
 
-import { Operator } from '../Puzzle.ts';
+import {
+  HouseType,
+  Operator
+} from '../Puzzle.ts';
 import { ensureNonNullable } from '../typeGuards.ts';
 
+export enum AggregateType {
+  Product = 'product',
+  Sum = 'sum'
+}
+
 export const BINARY_CELL_COUNT = 2;
+
+export enum BoundType {
+  Max = 'max',
+  Min = 'min'
+}
 
 export function canBeOperator(
   operator: Operator,
@@ -38,12 +50,12 @@ export function computeLatinSquareBound(
   otherCells: readonly Cell[],
   value: number,
   puzzleSize: number,
-  aggregateType: 'product' | 'sum',
-  boundType: 'max' | 'min'
+  aggregateType: AggregateType,
+  boundType: BoundType
 ): number {
-  const rowBound = computeHouseBound(targetCell, otherCells, value, puzzleSize, aggregateType, boundType, 'row');
-  const colBound = computeHouseBound(targetCell, otherCells, value, puzzleSize, aggregateType, boundType, 'column');
-  return boundType === 'min' ? Math.max(rowBound, colBound) : Math.min(rowBound, colBound);
+  const rowBound = computeHouseBound(targetCell, otherCells, value, puzzleSize, aggregateType, boundType, HouseType.Row);
+  const colBound = computeHouseBound(targetCell, otherCells, value, puzzleSize, aggregateType, boundType, HouseType.Column);
+  return boundType === BoundType.Min ? Math.max(rowBound, colBound) : Math.min(rowBound, colBound);
 }
 
 export function deduceOperator(
@@ -78,22 +90,22 @@ function canBeMultiplication(
 function computeAxisBound(
   cells: readonly Cell[],
   puzzleSize: number,
-  aggregateType: 'product' | 'sum',
+  aggregateType: AggregateType,
   axis: HouseType
 ): { max: number; min: number } {
   const groups = new Map<number, number>();
   for (const cell of cells) {
-    const houseId = axis === 'row' ? cell.row.id : cell.column.id;
+    const houseId = axis === HouseType.Row ? cell.row.id : cell.column.id;
     groups.set(houseId, (groups.get(houseId) ?? 0) + 1);
   }
 
-  let min = aggregateType === 'sum' ? 0 : 1;
-  let max = aggregateType === 'sum' ? 0 : 1;
+  let min = aggregateType === AggregateType.Sum ? 0 : 1;
+  let max = aggregateType === AggregateType.Sum ? 0 : 1;
 
   for (const count of groups.values()) {
-    const groupMin = distinctAggregateBound(count, puzzleSize, aggregateType, 'min');
-    const groupMax = distinctAggregateBound(count, puzzleSize, aggregateType, 'max');
-    if (aggregateType === 'sum') {
+    const groupMin = distinctAggregateBound(count, puzzleSize, aggregateType, BoundType.Min);
+    const groupMax = distinctAggregateBound(count, puzzleSize, aggregateType, BoundType.Max);
+    if (aggregateType === AggregateType.Sum) {
       min += groupMin;
       max += groupMax;
     } else {
@@ -109,8 +121,8 @@ function computeCageProductBounds(
   cells: readonly Cell[],
   puzzleSize: number
 ): { max: number; min: number } {
-  const rowBound = computeAxisBound(cells, puzzleSize, 'product', 'row');
-  const colBound = computeAxisBound(cells, puzzleSize, 'product', 'column');
+  const rowBound = computeAxisBound(cells, puzzleSize, AggregateType.Product, HouseType.Row);
+  const colBound = computeAxisBound(cells, puzzleSize, AggregateType.Product, HouseType.Column);
   return {
     max: Math.min(rowBound.max, colBound.max),
     min: Math.max(rowBound.min, colBound.min)
@@ -121,8 +133,8 @@ function computeCageSumBounds(
   cells: readonly Cell[],
   puzzleSize: number
 ): { max: number; min: number } {
-  const rowBound = computeAxisBound(cells, puzzleSize, 'sum', 'row');
-  const colBound = computeAxisBound(cells, puzzleSize, 'sum', 'column');
+  const rowBound = computeAxisBound(cells, puzzleSize, AggregateType.Sum, HouseType.Row);
+  const colBound = computeAxisBound(cells, puzzleSize, AggregateType.Sum, HouseType.Column);
   return {
     max: Math.min(rowBound.max, colBound.max),
     min: Math.max(rowBound.min, colBound.min)
@@ -134,13 +146,13 @@ function computeHouseBound(
   otherCells: readonly Cell[],
   value: number,
   puzzleSize: number,
-  aggregateType: 'product' | 'sum',
-  boundType: 'max' | 'min',
+  aggregateType: AggregateType,
+  boundType: BoundType,
   houseType: HouseType
 ): number {
   const groups = new Map<number, Cell[]>();
   for (const cell of otherCells) {
-    const houseId = houseType === 'row' ? cell.row.id : cell.column.id;
+    const houseId = houseType === HouseType.Row ? cell.row.id : cell.column.id;
     const existing = groups.get(houseId);
     if (existing) {
       existing.push(cell);
@@ -149,19 +161,19 @@ function computeHouseBound(
     }
   }
 
-  const targetHouseId = houseType === 'row' ? targetCell.row.id : targetCell.column.id;
+  const targetHouseId = houseType === HouseType.Row ? targetCell.row.id : targetCell.column.id;
 
-  let result = aggregateType === 'sum' ? 0 : 1;
+  let result = aggregateType === AggregateType.Sum ? 0 : 1;
 
   for (const [houseId, cells] of groups) {
-    const house = houseType === 'row' ? ensureNonNullable(cells[0]).row : ensureNonNullable(cells[0]).column;
+    const house = houseType === HouseType.Row ? ensureNonNullable(cells[0]).row : ensureNonNullable(cells[0]).column;
     const excluded = solvedValuesInHouse(house);
     if (houseId === targetHouseId) {
       excluded.add(value);
     }
-    const fn = boundType === 'min' ? minDistinctAggregate : maxDistinctAggregate;
+    const fn = boundType === BoundType.Min ? minDistinctAggregate : maxDistinctAggregate;
     const groupBound = fn(cells.length, puzzleSize, aggregateType, excluded);
-    result = aggregateType === 'sum' ? result + groupBound : result * groupBound;
+    result = aggregateType === AggregateType.Sum ? result + groupBound : result * groupBound;
   }
 
   return result;
@@ -170,13 +182,13 @@ function computeHouseBound(
 function distinctAggregateBound(
   count: number,
   puzzleSize: number,
-  aggregateType: 'product' | 'sum',
-  boundType: 'max' | 'min'
+  aggregateType: AggregateType,
+  boundType: BoundType
 ): number {
-  if (aggregateType === 'product') {
+  if (aggregateType === AggregateType.Product) {
     return distinctProductBound(count, puzzleSize, boundType);
   }
-  return boundType === 'min'
+  return boundType === BoundType.Min
     ? count * (count + 1) / BINARY_CELL_COUNT
     : count * puzzleSize - count * (count - 1) / BINARY_CELL_COUNT;
 }
@@ -184,10 +196,10 @@ function distinctAggregateBound(
 function distinctProductBound(
   cellCount: number,
   puzzleSize: number,
-  boundType: 'max' | 'min'
+  boundType: BoundType
 ): number {
   let result = 1;
-  if (boundType === 'min') {
+  if (boundType === BoundType.Min) {
     for (let v = 1; v <= cellCount; v++) {
       result *= v;
     }
@@ -224,14 +236,14 @@ function hasLargePrimeFactor(value: number, maxFactor: number): boolean {
 function maxDistinctAggregate(
   count: number,
   puzzleSize: number,
-  aggregateType: 'product' | 'sum',
+  aggregateType: AggregateType,
   excludedValues: ReadonlySet<number>
 ): number {
-  let result = aggregateType === 'sum' ? 0 : 1;
+  let result = aggregateType === AggregateType.Sum ? 0 : 1;
   let picked = 0;
   for (let v = puzzleSize; v >= 1 && picked < count; v--) {
     if (!excludedValues.has(v)) {
-      result = aggregateType === 'sum' ? result + v : result * v;
+      result = aggregateType === AggregateType.Sum ? result + v : result * v;
       picked++;
     }
   }
@@ -241,14 +253,14 @@ function maxDistinctAggregate(
 function minDistinctAggregate(
   count: number,
   puzzleSize: number,
-  aggregateType: 'product' | 'sum',
+  aggregateType: AggregateType,
   excludedValues: ReadonlySet<number>
 ): number {
-  let result = aggregateType === 'sum' ? 0 : 1;
+  let result = aggregateType === AggregateType.Sum ? 0 : 1;
   let picked = 0;
   for (let v = 1; v <= puzzleSize && picked < count; v++) {
     if (!excludedValues.has(v)) {
-      result = aggregateType === 'sum' ? result + v : result * v;
+      result = aggregateType === AggregateType.Sum ? result + v : result * v;
       picked++;
     }
   }

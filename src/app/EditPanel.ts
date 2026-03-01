@@ -1,11 +1,16 @@
 import type { Puzzle } from '../Puzzle.ts';
 import type { SvgRenderer } from '../SvgRenderer.ts';
 
+enum OperationMode {
+  Candidates = 'candidates',
+  Clear = 'clear',
+  Strikethrough = 'strikethrough',
+  Value = 'value'
+}
+
 interface EditPanelCallbacks {
   onActionComplete(slidesBefore: number): void;
 }
-
-type OperationMode = 'candidates' | 'clear' | 'strikethrough' | 'value';
 
 interface QueuedGroup {
   readonly cells: readonly string[];
@@ -18,7 +23,7 @@ const SELECTED_CLASS = 'cell-selected';
 
 export class EditPanel {
   private callbacks: EditPanelCallbacks | null = null;
-  private currentMode: OperationMode = 'candidates';
+  private currentMode: OperationMode = OperationMode.Candidates;
   private delegationAttached = false;
   private panel: HTMLElement | null = null;
   private puzzle: null | Puzzle = null;
@@ -67,7 +72,7 @@ export class EditPanel {
     const cells = [...this.selectedCells];
     let values: number[] = [];
 
-    if (this.currentMode !== 'clear') {
+    if (this.currentMode !== OperationMode.Clear) {
       const digitBtns = this.panel?.querySelectorAll('.btn-digit.selected') ?? [];
       values = Array.from(digitBtns, (btn) => parseInt(btn.getAttribute('data-digit') ?? '0', 10));
       if (values.length === 0) {
@@ -90,16 +95,16 @@ export class EditPanel {
 
       let opPart: string;
       switch (group.mode) {
-        case 'candidates':
+        case OperationMode.Candidates:
           opPart = group.values.join('');
           break;
-        case 'clear':
+        case OperationMode.Clear:
           opPart = 'x';
           break;
-        case 'strikethrough':
+        case OperationMode.Strikethrough:
           opPart = `-${group.values.join('')}`;
           break;
-        case 'value':
+        case OperationMode.Value:
           opPart = `=${String(group.values[0])}`;
           break;
         default: {
@@ -355,7 +360,7 @@ export class EditPanel {
   private updateDigitVisibility(): void {
     const digitSection = this.panel?.querySelector('#digit-section');
     if (digitSection) {
-      (digitSection as HTMLElement).style.display = this.currentMode === 'clear' ? 'none' : '';
+      (digitSection as HTMLElement).style.display = this.currentMode === OperationMode.Clear ? 'none' : '';
     }
   }
 
@@ -370,7 +375,7 @@ export class EditPanel {
     }
     queueEl.innerHTML = this.queuedGroups.map((g) => {
       const cellStr = g.cells.join(', ');
-      const valStr = g.mode === 'clear' ? 'clear' : g.values.join('');
+      const valStr = g.mode === OperationMode.Clear ? 'clear' : g.values.join('');
       return `<div class="queue-item">${g.mode}: ${cellStr} = ${valStr}</div>`;
     }).join('');
   }
