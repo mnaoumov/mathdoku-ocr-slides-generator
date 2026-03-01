@@ -30,6 +30,7 @@
     "multisets",
     "numpy",
     "OTSU",
+    "outie",
     "Outies",
     "pyproject",
     "pytesseract",
