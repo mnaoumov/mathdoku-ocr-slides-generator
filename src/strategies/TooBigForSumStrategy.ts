@@ -24,7 +24,14 @@ export class TooBigForSumStrategy extends CageOperationStrategy {
     if (ctx.otherCells.length === 0) {
       return remainder < 0;
     }
-    const minOtherSum = computeLatinSquareBound(ctx.cell, ctx.otherCells, value, ctx.puzzleSize, AggregateType.Sum, BoundType.Min);
+    const minOtherSum = computeLatinSquareBound({
+      aggregateType: AggregateType.Sum,
+      boundType: BoundType.Min,
+      otherCells: ctx.otherCells,
+      puzzleSize: ctx.puzzleSize,
+      targetCell: ctx.cell,
+      value
+    });
     return remainder < minOtherSum;
   }
 }

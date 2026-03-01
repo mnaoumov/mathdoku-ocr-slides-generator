@@ -32,7 +32,14 @@ export class TooBigForProductStrategy extends CageOperationStrategy {
     if (ctx.otherCells.length === 0 || ctx.cellCount === BINARY_CELL_COUNT) {
       return false;
     }
-    const minOtherProduct = computeLatinSquareBound(ctx.cell, ctx.otherCells, value, ctx.puzzleSize, AggregateType.Product, BoundType.Min);
+    const minOtherProduct = computeLatinSquareBound({
+      aggregateType: AggregateType.Product,
+      boundType: BoundType.Min,
+      otherCells: ctx.otherCells,
+      puzzleSize: ctx.puzzleSize,
+      targetCell: ctx.cell,
+      value
+    });
     return quotient < minOtherProduct;
   }
 }

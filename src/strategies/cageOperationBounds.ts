@@ -21,6 +21,24 @@ export enum BoundType {
   Min = 'min'
 }
 
+export interface Bounds {
+  readonly max: number;
+  readonly min: number;
+}
+
+export interface LatinSquareBoundOptions {
+  readonly aggregateType: AggregateType;
+  readonly boundType: BoundType;
+  readonly otherCells: readonly Cell[];
+  readonly puzzleSize: number;
+  readonly targetCell: Cell;
+  readonly value: number;
+}
+
+interface HouseBoundOptions extends LatinSquareBoundOptions {
+  readonly houseType: HouseType;
+}
+
 export function canBeOperator(
   operator: Operator,
   cageValue: number,
@@ -45,17 +63,10 @@ export function canBeOperator(
   }
 }
 
-export function computeLatinSquareBound(
-  targetCell: Cell,
-  otherCells: readonly Cell[],
-  value: number,
-  puzzleSize: number,
-  aggregateType: AggregateType,
-  boundType: BoundType
-): number {
-  const rowBound = computeHouseBound(targetCell, otherCells, value, puzzleSize, aggregateType, boundType, HouseType.Row);
-  const colBound = computeHouseBound(targetCell, otherCells, value, puzzleSize, aggregateType, boundType, HouseType.Column);
-  return boundType === BoundType.Min ? Math.max(rowBound, colBound) : Math.min(rowBound, colBound);
+export function computeLatinSquareBound(options: LatinSquareBoundOptions): number {
+  const rowBound = computeHouseBound({ ...options, houseType: HouseType.Row });
+  const colBound = computeHouseBound({ ...options, houseType: HouseType.Column });
+  return options.boundType === BoundType.Min ? Math.max(rowBound, colBound) : Math.min(rowBound, colBound);
 }
 
 export function deduceOperator(
@@ -92,7 +103,7 @@ function computeAxisBound(
   puzzleSize: number,
   aggregateType: AggregateType,
   axis: HouseType
-): { max: number; min: number } {
+): Bounds {
   const groups = new Map<number, number>();
   for (const cell of cells) {
     const houseId = axis === HouseType.Row ? cell.row.id : cell.column.id;
@@ -120,7 +131,7 @@ function computeAxisBound(
 function computeCageProductBounds(
   cells: readonly Cell[],
   puzzleSize: number
-): { max: number; min: number } {
+): Bounds {
   const rowBound = computeAxisBound(cells, puzzleSize, AggregateType.Product, HouseType.Row);
   const colBound = computeAxisBound(cells, puzzleSize, AggregateType.Product, HouseType.Column);
   return {
@@ -132,7 +143,7 @@ function computeCageProductBounds(
 function computeCageSumBounds(
   cells: readonly Cell[],
   puzzleSize: number
-): { max: number; min: number } {
+): Bounds {
   const rowBound = computeAxisBound(cells, puzzleSize, AggregateType.Sum, HouseType.Row);
   const colBound = computeAxisBound(cells, puzzleSize, AggregateType.Sum, HouseType.Column);
   return {
@@ -141,15 +152,8 @@ function computeCageSumBounds(
   };
 }
 
-function computeHouseBound(
-  targetCell: Cell,
-  otherCells: readonly Cell[],
-  value: number,
-  puzzleSize: number,
-  aggregateType: AggregateType,
-  boundType: BoundType,
-  houseType: HouseType
-): number {
+function computeHouseBound(options: HouseBoundOptions): number {
+  const { aggregateType, boundType, houseType, otherCells, puzzleSize, targetCell, value } = options;
   const groups = new Map<number, Cell[]>();
   for (const cell of otherCells) {
     const houseId = houseType === HouseType.Row ? cell.row.id : cell.column.id;
