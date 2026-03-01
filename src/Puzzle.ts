@@ -470,6 +470,12 @@ export class Puzzle {
           if (conflicting.length > 0) {
             changes.push(new CandidatesStrikethrough(cell, [...conflicting]));
           }
+          if (cell.candidateCount > 0) {
+            const eliminated = cmd.operation.values.filter((v) => !cell.hasCandidate(v));
+            if (eliminated.length > 0) {
+              changes.push(new CandidatesStrikethrough(cell, eliminated));
+            }
+          }
         }
       }
     }
