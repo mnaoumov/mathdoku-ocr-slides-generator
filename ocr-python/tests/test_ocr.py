@@ -11,7 +11,7 @@ from pathlib import Path
 
 import yaml
 
-from ocr.ocr_mathdoku import ocr_mathdoku
+from ocr_mathdoku import ocr_mathdoku
 
 
 FIXTURES_DIR = Path(__file__).parent / "fixtures"

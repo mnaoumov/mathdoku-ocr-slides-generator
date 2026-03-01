@@ -1,0 +1,36 @@
+size: 7
+difficulty: 4
+hasOperators: false
+cages:
+- cells: [A1, B1, A2, B2, A3]
+  value: 588
+- cells: [C1, C2]
+  value: 3
+- cells: [D1, D2, C3, D3, D4]
+  value: 96
+- cells: [E1, F1, F2, G2, F3]
+  value: 5040
+- cells: [G1]
+  value: 4
+- cells: [E2, E3]
+  value: 7
+- cells: [B3, B4, C4, B5]
+  value: 450
+- cells: [G3, F4, G4, F5]
+  value: 210
+- cells: [A4, A5, A6]
+  value: 12
+- cells: [E4, D5, E5]
+  value: 16
+- cells: [C5, C6, C7]
+  value: 84
+- cells: [G5, G6]
+  value: 7
+- cells: [B6, A7, B7]
+  value: 40
+- cells: [D6, E6, F6, D7, E7]
+  value: 140
+- cells: [F7]
+  value: 3
+- cells: [G7]
+  value: 2

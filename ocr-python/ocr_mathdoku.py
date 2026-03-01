@@ -1060,10 +1060,10 @@ def _read_cage_labels(
     multi_cell_cages_with_operator = sum(1 for (_, op), c in zip(results, cages) if len(c) > 1 and op)
     multi_cell_cages_without_operator = sum(1 for (_, op), c in zip(results, cages) if len(c) > 1 and not op)
     has_operators = multi_cell_cages_with_operator > multi_cell_cages_without_operator
-    if not has_operators:
-        return results
 
     for idx in range(len(results)):
+        if not has_operators:
+            break
         value, op = results[idx]
         if len(cages[idx]) <= 1 or op is not None:
             continue
