@@ -121,6 +121,7 @@ const CHAR_CODE_A = 65;
 const SINGLE_CELL_COUNT = 1;
 
 export class Cage {
+  public deducedOperator?: Operator;
   public readonly operator: Operator;
   public readonly value: number;
 

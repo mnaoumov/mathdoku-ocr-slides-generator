@@ -46,7 +46,7 @@ export class RequiredCageCandidateStrategy implements Strategy {
         continue;
       }
 
-      const operators = getOperatorsForCage(puzzle.hasOperators, cage.operator, cage.value, cage.cells, puzzle.puzzleSize);
+      const operators = getOperatorsForCage(cage, puzzle.puzzleSize);
       if (operators.length === 0) {
         continue;
       }

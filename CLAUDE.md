@@ -31,7 +31,7 @@ Interactive browser-based Mathdoku puzzle solver with Reveal.js presentations. T
 - `src/layoutProfiles.ts` - Layout profile interfaces, `LAYOUT_PROFILES` constant (sizes 4-9), color/dimension constants, utility functions (`clamp`, `fitFontSize`, `formatCandidates`, `getLayoutProfile`, `in2pt`, `opSymbol`, `pt`)
 - `src/SvgRenderer.ts` - SVG-based PuzzleRenderer: maintains per-cell visual state, builds SVG slides with pending/committed workflow, clickable cell overlays
 - `src/strategies/` - Strategy implementations: solving strategies (SingleCandidate, HiddenSingle, LastCellInCage, NakedSet, HiddenSet, cage operation strategies (TooSmallForSum, TooBigForSum, DoesNotDivideProduct, TooSmallForProduct, TooBigForProduct), DeterminedByCage, NoCageCombination, RequiredCageCandidate, InniesOuties, Fish), init strategies (FillAllCandidates, SingleCellCage, UniqueCageMultiset)
-- `src/strategies/cageOperationBounds.ts` - Cage operator deduction and Latin square bounds: `canBeOperator`, `computeLatinSquareBound`, `deduceOperator`, enums (`AggregateType`, `BoundType`), `Bounds` interface, `BINARY_CELL_COUNT`
+- `src/strategies/cageOperationBounds.ts` - Cage operator deduction and Latin square bounds: `canBeOperator`, `computeLatinSquareBound`, `deduceOperator`, `getEffectiveOperator` (cached deduction via `Cage.deducedOperator`), enums (`AggregateType`, `BoundType`), `Bounds` interface, `BINARY_CELL_COUNT`
 - `src/strategies/cageTupleAnalysis.ts` - Shared cage tuple enumeration functions (`getOperatorsForCage`, `adjustTargetForSolvedCells`, `enumerateValidTuples`) used by NoCageCombination and RequiredCageCandidate
 - `src/cellChanges/` - CellChange subclasses (CandidatesChange, CandidatesStrikethrough, CellClearance, ValueChange)
 - `src/app/main.ts` - Browser entry: YAML parsing, puzzle init, Reveal.js setup, keyboard shortcuts, undo, auto-save, server puzzle auto-load
@@ -141,6 +141,8 @@ This is enforced structurally: `StrategyResult.changeGroups` is an array of `Cha
 ### Operator enum
 
 Cage operators use the `Operator` string enum (in `Puzzle.ts`): `Plus = '+'`, `Minus = '-'`, `Times = 'x'`, `Divide = '/'`, `Exact = '='`, `Unknown = '?'`. The OCR normalizes all Unicode variants (x, /, etc.) to these four known operators before writing YAML. `Operator.Exact` is for single-cell cages where the cell value equals the cage value directly (no mathematical operation). `Operator.Unknown` is an internal sentinel for multi-cell cages without a specified operator (puzzles with `hasOperators: false`); it never appears in YAML. Neither `Exact` nor `Unknown` appear in YAML; the zod schema defaults missing operators to `Unknown`. `CageRaw.operator` and `Cage.operator` are always `Operator` (never `undefined`).
+
+`Cage.deducedOperator` is a mutable cache field set by `getEffectiveOperator()` when operator deduction succeeds. Only non-Unknown results are cached (Unknown means "try again later"). All strategies use `getEffectiveOperator(cage, puzzleSize)` instead of calling `deduceOperator` directly.
 
 - Start solver: `npm run startSolver -- path/to/puzzle.yaml`
 - Run dev server (file picker): `npm run dev`

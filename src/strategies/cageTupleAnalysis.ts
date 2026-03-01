@@ -1,4 +1,7 @@
-import type { Cell } from '../Puzzle.ts';
+import type {
+  Cage,
+  Cell
+} from '../Puzzle.ts';
 
 import { evaluateTuple } from '../combinatorics.ts';
 import { Operator } from '../Puzzle.ts';
@@ -6,7 +9,7 @@ import { ensureNonNullable } from '../typeGuards.ts';
 import {
   BINARY_CELL_COUNT,
   canBeOperator,
-  deduceOperator
+  getEffectiveOperator
 } from './cageOperationBounds.ts';
 
 const BINARY_OPERATORS: readonly Operator[] = [Operator.Divide, Operator.Minus, Operator.Plus, Operator.Times];
@@ -74,24 +77,17 @@ export function enumerateValidTuples(
   return tuples;
 }
 
-export function getOperatorsForCage(
-  hasOperators: boolean,
-  cageOperator: Operator,
-  cageValue: number,
-  cells: readonly Cell[],
-  puzzleSize: number
-): Operator[] {
-  if (hasOperators && cageOperator !== Operator.Unknown) {
-    return [cageOperator];
-  }
-  const deduced = deduceOperator(cageValue, cells, puzzleSize);
-  if (deduced !== Operator.Unknown) {
-    return [deduced];
+export function getOperatorsForCage(cage: Cage, puzzleSize: number): Operator[] {
+  const effective = getEffectiveOperator(cage, puzzleSize);
+  if (effective !== Operator.Unknown) {
+    return [effective];
   }
 
-  const possibleOperators = cells.length === BINARY_CELL_COUNT
+  const possibleOperators = cage.cells.length === BINARY_CELL_COUNT
     ? BINARY_OPERATORS
     : MULTI_CELL_OPERATORS;
 
-  return [...possibleOperators].filter((op) => canBeOperator(op, cageValue, cells, puzzleSize));
+  return [...possibleOperators].filter(
+    (op) => canBeOperator(op, cage.value, cage.cells, puzzleSize)
+  );
 }

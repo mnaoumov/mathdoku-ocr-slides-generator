@@ -16,7 +16,7 @@ import {
   Operator
 } from '../Puzzle.ts';
 import { ensureNonNullable } from '../typeGuards.ts';
-import { deduceOperator } from './cageOperationBounds.ts';
+import { getEffectiveOperator } from './cageOperationBounds.ts';
 
 interface CageContribution {
   readonly innerCells: readonly Cell[];
@@ -272,9 +272,7 @@ export class InniesOutiesStrategy implements Strategy {
     }
 
     // Deduce effective operator for hasOperators: false puzzles
-    const effectiveOperator = cage.operator === Operator.Unknown
-      ? deduceOperator(cage.value, cage.cells, puzzleSize)
-      : cage.operator;
+    const effectiveOperator = getEffectiveOperator(cage, puzzleSize);
 
     // Only handle + cages for innies/outies sum constraint
     if (effectiveOperator !== Operator.Plus) {

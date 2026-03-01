@@ -1,4 +1,5 @@
 import type {
+  Cage,
   Cell,
   House
 } from '../Puzzle.ts';
@@ -83,12 +84,29 @@ export function deduceOperator(
   return feasible.length === 1 ? ensureNonNullable(feasible[0]) : Operator.Unknown;
 }
 
+export function getEffectiveOperator(cage: Cage, puzzleSize: number): Operator {
+  if (cage.operator !== Operator.Unknown) {
+    return cage.operator;
+  }
+  if (cage.deducedOperator !== undefined) {
+    return cage.deducedOperator;
+  }
+  const deduced = deduceOperator(cage.value, cage.cells, puzzleSize);
+  if (deduced !== Operator.Unknown) {
+    cage.deducedOperator = deduced;
+  }
+  return deduced;
+}
+
 function canBeMultiplication(
   cageValue: number,
   cells: readonly Cell[],
   puzzleSize: number
 ): boolean {
   if (hasLargePrimeFactor(cageValue, puzzleSize)) {
+    return false;
+  }
+  if (hasNonDivisorCell(cageValue, cells)) {
     return false;
   }
   const cellCount = cells.length;
@@ -236,6 +254,18 @@ function hasLargePrimeFactor(value: number, maxFactor: number): boolean {
     }
   }
   return remaining > 1;
+}
+
+function hasNonDivisorCell(cageValue: number, cells: readonly Cell[]): boolean {
+  for (const cell of cells) {
+    const possibleValues = cell.isSolved
+      ? [ensureNonNullable(cell.value)]
+      : cell.getCandidates();
+    if (possibleValues.length > 0 && possibleValues.every((v) => cageValue % v !== 0)) {
+      return true;
+    }
+  }
+  return false;
 }
 
 function maxDistinctAggregate(

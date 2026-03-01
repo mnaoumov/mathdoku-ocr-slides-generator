@@ -12,7 +12,7 @@ import type {
 import { CandidatesStrikethrough } from '../cellChanges/CandidatesStrikethrough.ts';
 import { Operator } from '../Puzzle.ts';
 import { ensureNonNullable } from '../typeGuards.ts';
-import { deduceOperator } from './cageOperationBounds.ts';
+import { getEffectiveOperator } from './cageOperationBounds.ts';
 
 export interface CageContext {
   readonly cage: Cage;
@@ -47,9 +47,7 @@ export abstract class CageOperationStrategy implements Strategy {
         continue;
       }
 
-      const effectiveOperator = puzzle.hasOperators && cage.operator !== Operator.Unknown
-        ? cage.operator
-        : deduceOperator(cage.value, cage.cells, puzzle.puzzleSize);
+      const effectiveOperator = getEffectiveOperator(cage, puzzle.puzzleSize);
 
       if (!this.handlesOperator(effectiveOperator)) {
         continue;
