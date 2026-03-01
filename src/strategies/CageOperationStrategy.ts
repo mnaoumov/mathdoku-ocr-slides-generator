@@ -71,7 +71,7 @@ export abstract class CageOperationStrategy implements Strategy {
 
     return {
       changeGroups: allGroups,
-      details: allNoteEntries.join(', ')
+      details: allNoteEntries.join('; ')
     };
   }
 

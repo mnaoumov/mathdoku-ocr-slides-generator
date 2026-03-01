@@ -70,7 +70,7 @@ export class DeterminedByCageStrategy implements Strategy {
 
     return {
       changeGroups,
-      details: affectedRefs.join(', ')
+      details: affectedRefs.join('; ')
     };
   }
 

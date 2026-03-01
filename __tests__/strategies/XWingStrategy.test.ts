@@ -61,7 +61,7 @@ describe('XWingStrategy', () => {
 
     // Find the change group for value 3 X-Wing on columns A,C
     const matchingGroup = r.changeGroups.find(
-      (g) => g.reason.includes('3') && g.reason.includes('columns A,C')
+      (g) => g.reason.includes('3') && g.reason.includes('columns (AC)')
     );
     expect(matchingGroup).toBeDefined();
 
@@ -119,7 +119,7 @@ describe('XWingStrategy', () => {
 
     // Find the change group for value 2 X-Wing on rows 1,3
     const matchingGroup = r.changeGroups.find(
-      (g) => g.reason.includes('2') && g.reason.includes('rows 1,3')
+      (g) => g.reason.includes('2') && g.reason.includes('rows (13)')
     );
     expect(matchingGroup).toBeDefined();
 
@@ -243,9 +243,9 @@ describe('XWingStrategy', () => {
 
     const result = ensureNonNullable(strategy.tryApply(puzzle));
     const reasons = result.changeGroups.map((g) => g.reason);
-    expect(reasons).toContain('3 only in rows 1,3 of columns A,C');
+    expect(reasons).toContain('3 columns (AC) rows (13)');
 
     expect(result.details).toBeDefined();
-    expect(ensureNonNullable(result.details)).toContain('3 columns A,C rows 1,3');
+    expect(ensureNonNullable(result.details)).toContain('3 columns (AC) rows (13)');
   });
 });

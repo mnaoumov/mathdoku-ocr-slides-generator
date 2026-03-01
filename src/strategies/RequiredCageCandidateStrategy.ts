@@ -87,7 +87,7 @@ export class RequiredCageCandidateStrategy implements Strategy {
 
     return {
       changeGroups: allGroups,
-      details: allNoteEntries.join(', ')
+      details: allNoteEntries.join('; ')
     };
   }
 

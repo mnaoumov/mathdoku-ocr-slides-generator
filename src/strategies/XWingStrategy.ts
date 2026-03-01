@@ -33,7 +33,7 @@ export class XWingStrategy implements Strategy {
 
     return {
       changeGroups: allGroups,
-      details: allNoteEntries.join(', ')
+      details: allNoteEntries.join('; ')
     };
   }
 
@@ -84,11 +84,11 @@ export class XWingStrategy implements Strategy {
       changes.sort((a, b) => Cell.compare(a.cell, b.cell));
 
       const crossType = definingType === 'column' ? 'row' : 'column';
-      const lineLabels = [line1.label, line2.label].join(',');
-      const crossLabels = crossIds1.map((id) => crossLines[id - 1]?.label ?? String(id)).join(',');
-      const reason = `${String(value)} only in ${crossType}s ${crossLabels} of ${definingType}s ${lineLabels}`;
+      const lineLabels = [line1.label, line2.label].join('');
+      const crossLabels = crossIds1.map((id) => crossLines[id - 1]?.label ?? String(id)).join('');
+      const reason = `${String(value)} ${definingType}s (${lineLabels}) ${crossType}s (${crossLabels})`;
       allGroups.push({ changes, reason });
-      allNoteEntries.push(`${String(value)} ${definingType}s ${lineLabels} ${crossType}s ${crossLabels}`);
+      allNoteEntries.push(`${String(value)} ${definingType}s (${lineLabels}) ${crossType}s (${crossLabels})`);
     }
   }
 }

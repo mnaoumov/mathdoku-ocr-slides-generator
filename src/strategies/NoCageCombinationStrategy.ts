@@ -71,7 +71,7 @@ export class NoCageCombinationStrategy implements Strategy {
 
     return {
       changeGroups: allGroups,
-      details: allNoteEntries.join(', ')
+      details: allNoteEntries.join('; ')
     };
   }
 

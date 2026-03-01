@@ -43,7 +43,7 @@ export class NakedSetStrategy implements Strategy {
     const subsetDescriptions = changeGroups.map((g) => g.reason);
     return {
       changeGroups,
-      details: subsetDescriptions.join(', ')
+      details: subsetDescriptions.join('; ')
     };
   }
 

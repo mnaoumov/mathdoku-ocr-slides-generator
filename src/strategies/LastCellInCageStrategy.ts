@@ -64,7 +64,7 @@ export class LastCellInCageStrategy implements Strategy {
 
     return {
       changeGroups,
-      details: affectedRefs.join(', ')
+      details: affectedRefs.join('; ')
     };
   }
 

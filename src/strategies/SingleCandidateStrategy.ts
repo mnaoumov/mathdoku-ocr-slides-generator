@@ -30,7 +30,7 @@ export class SingleCandidateStrategy implements Strategy {
     const changeGroups: ChangeGroup[] = results.map(
       (setter) => buildAutoEliminateGroup(setter, setter.cell.ref)
     );
-    const cellRefs = results.map((r) => r.cell.ref).join(', ');
+    const cellRefs = results.map((r) => r.cell.ref).join('; ');
     return { changeGroups, details: cellRefs };
   }
 }

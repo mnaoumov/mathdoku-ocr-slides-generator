@@ -45,7 +45,7 @@ export class UniqueCageMultisetStrategy implements Strategy {
 
     return {
       changeGroups,
-      details: affectedCageRefs.join(', ')
+      details: affectedCageRefs.join('; ')
     };
   }
 }

@@ -27,7 +27,7 @@ export class SingleCellCageStrategy implements Strategy {
     const changeGroups: ChangeGroup[] = valueSetters.map(
       (setter) => buildAutoEliminateGroup(setter, setter.cell.ref)
     );
-    const cellRefs = valueSetters.map((s) => s.cell.ref).join(', ');
+    const cellRefs = valueSetters.map((s) => s.cell.ref).join('; ');
     return { changeGroups, details: cellRefs };
   }
 }

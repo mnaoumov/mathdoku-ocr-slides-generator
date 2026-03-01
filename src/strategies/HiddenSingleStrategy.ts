@@ -34,14 +34,14 @@ export class HiddenSingleStrategy implements Strategy {
 
     const changeGroups: ChangeGroup[] = results.map((r) => {
       const setter: CellValueSetter = { cell: r.cell, value: r.value };
-      return buildAutoEliminateGroup(setter, `${r.cell.ref}: ${r.house.type} ${r.house.label}`);
+      return buildAutoEliminateGroup(setter, `${r.cell.ref} ${r.house.type}`);
     });
     const noteEntries = results.map(
-      (r) => `${r.cell.ref}: ${r.house.type} ${r.house.label}`
+      (r) => `${r.cell.ref} ${r.house.type}`
     );
     return {
       changeGroups,
-      details: noteEntries.join(', ')
+      details: noteEntries.join('; ')
     };
   }
 
