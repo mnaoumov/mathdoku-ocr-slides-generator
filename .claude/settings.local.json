@@ -1,30 +1,12 @@
 {
   "permissions": {
     "allow": [
-      "Bash(python:*)",
-      "Read(//f/**)",
-      "Bash(cd:*)",
-      "Bash(winget:*)",
-      "Bash(choco:*)",
-      "Bash(export PATH=\"$PATH:/c/Program Files/Tesseract-OCR\")",
-      "Bash(findstr:*)",
-      "Bash(tesseract:*)",
-      "Bash(git add:*)",
-      "Bash(git commit:*)",
-      "Bash(git push:*)",
-      "Bash(py:*)",
-      "WebSearch",
-      "Bash(uv run pytest:*)",
-      "Bash(uv run python:*)",
-      "Bash(uv add:*)",
-      "WebFetch(domain:typescript-eslint.io)",
-      "Bash(PYTHONIOENCODING=utf-8 uv run pytest:*)",
       "*",
       "Bash",
       "mcp__ide__getDiagnostics",
-      "WebFetch(domain:zod.dev)",
-      "WebFetch(domain:cdn.jsdelivr.net)",
-      "Read"
+      "Read",
+      "WebFetch",
+      "WebSearch"
     ]
   }
 }
