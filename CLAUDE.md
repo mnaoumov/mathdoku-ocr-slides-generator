@@ -31,6 +31,7 @@ Interactive browser-based Mathdoku puzzle solver with Reveal.js presentations. T
 - `src/layoutProfiles.ts` - Layout profile interfaces, `LAYOUT_PROFILES` constant (sizes 4-9), color/dimension constants, utility functions (`clamp`, `fitFontSize`, `formatCandidates`, `getLayoutProfile`, `in2pt`, `opSymbol`, `pt`)
 - `src/SvgRenderer.ts` - SVG-based PuzzleRenderer: maintains per-cell visual state, builds SVG slides with pending/committed workflow, clickable cell overlays
 - `src/strategies/` - Strategy implementations: solving strategies (SingleCandidate, HiddenSingle, LastCellInCage, NakedSet, HiddenSet, cage operation strategies (TooSmallForSum, TooBigForSum, DoesNotDivideProduct, TooSmallForProduct, TooBigForProduct), DeterminedByCage, NoCageCombination, RequiredCageCandidate, InniesOuties, Fish), init strategies (FillAllCandidates, SingleCellCage, UniqueCageMultiset)
+- `src/strategies/cageOperationBounds.ts` - Cage operator deduction and Latin square bounds: `canBeOperator`, `computeLatinSquareBound`, `deduceOperator`, enums (`AggregateType`, `BoundType`), `Bounds` interface, `BINARY_CELL_COUNT`
 - `src/strategies/cageTupleAnalysis.ts` - Shared cage tuple enumeration functions (`getOperatorsForCage`, `adjustTargetForSolvedCells`, `enumerateValidTuples`) used by NoCageCombination and RequiredCageCandidate
 - `src/cellChanges/` - CellChange subclasses (CandidatesChange, CandidatesStrikethrough, CellClearance, ValueChange)
 - `src/app/main.ts` - Browser entry: YAML parsing, puzzle init, Reveal.js setup, keyboard shortcuts, undo, auto-save, server puzzle auto-load
@@ -117,6 +118,9 @@ Auto-saves after every action. Keyed by puzzle title with storage keys per puzzl
 - **camelCase** for all identifiers (variables, functions, interface fields). **UPPER_CASE** for constants only.
 - Single quotes, no trailing commas, 1tbs brace style, semicolons required
 - `.editorconfig`: 2-space indent, LF line endings, UTF-8
+- **Enums over union types**: Use `enum X { A = 'a', B = 'b' }` instead of `type X = 'a' | 'b'`. No inline union type parameters — define a named enum.
+- **Named types only**: No anonymous return types (e.g., `{ max: number; min: number }`) or anonymous argument object types. Use named interfaces (`Bounds`, `FooOptions`, etc.).
+- **Argument object pattern**: Functions with 5+ parameters should take a single options object. Name the interface `...Options` (not `...Params`).
 
 ### Build
 
