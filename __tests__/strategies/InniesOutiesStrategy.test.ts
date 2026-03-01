@@ -245,6 +245,41 @@ describe('InniesOutiesStrategy', () => {
     expect(a1Changes.flatMap((c) => [...c.values])).toEqual([3, 4]);
   });
 
+  it('subtracts solved cells in non-plus cages from house total', () => {
+    // 4x4 puzzle. Row 1 total = 10
+    // {A1} single cell, Operator.Unknown (value 4) — A1 solved=4
+    // {B1,B2} 2x (multiplication) — non-plus, but B1 solved=3
+    // {C1,C2} 5+ — C2 unsolved → C1 is unknown innie
+    // {D1} single cell, Operator.Unknown (value 2) — D1 solved=2
+    // Solved cells: A1=4, B1=3, D1=2 → knownSum = 4+3+2 = 9
+    // Remaining = 10-9 = 1 → C1 = 1
+    const cages = [
+      { cells: ['A1'], operator: Operator.Unknown, value: 4 },
+      { cells: ['B1', 'B2'], operator: Operator.Times, value: 6 },
+      { cells: ['C1', 'C2'], operator: Operator.Plus, value: 5 },
+      { cells: ['D1'], operator: Operator.Unknown, value: 2 },
+      { cells: ['A2', 'D2'], operator: Operator.Plus, value: 5 },
+      { cells: ['A3', 'A4'], operator: Operator.Plus, value: 5 },
+      { cells: ['B3', 'B4'], operator: Operator.Plus, value: 5 },
+      { cells: ['C3', 'C4'], operator: Operator.Plus, value: 5 },
+      { cells: ['D3', 'D4'], operator: Operator.Plus, value: 5 }
+    ];
+    const puzzle = createTestPuzzle({ cages, hasOperators: true, puzzleSize: 4 });
+    for (const cell of puzzle.cells) {
+      cell.setCandidates([1, 2, 3, 4]);
+    }
+    puzzle.getCell('A1').setValue(4);
+    puzzle.getCell('B1').setValue(3);
+    puzzle.getCell('D1').setValue(2);
+
+    const result = strategy.tryApply(puzzle);
+    expect(result).not.toBeNull();
+    const r = ensureNonNullable(result);
+    const changes = r.changeGroups.flatMap((g) => g.changes);
+    const valueChanges = changes.filter((c) => c instanceof ValueChange);
+    expect(valueChanges.some((c) => c.cell.ref === 'C1' && c.value === 1)).toBe(true);
+  });
+
   it('includes correct reason format for single cell', () => {
     const cages = [
       { cells: ['A1', 'A2'], operator: Operator.Plus, value: 3 },

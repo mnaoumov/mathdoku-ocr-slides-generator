@@ -64,12 +64,20 @@ export class InniesOutiesStrategy implements Strategy {
     }
 
     let knownSum = 0;
-    const unknownInnerCells: Cell[] = [];
+    const unsolvedUnknown: Cell[] = [];
 
     for (const [cage, innerCells] of cageMap) {
       const contribution = this.getCageContribution(cage, innerCells);
       if (!contribution.known) {
-        unknownInnerCells.push(...contribution.innerCells);
+        // Cage contribution unknown, but individually solved cells still
+        // contribute their known values to the house sum
+        for (const cell of contribution.innerCells) {
+          if (cell.isSolved) {
+            knownSum += ensureNonNullable(cell.value);
+          } else {
+            unsolvedUnknown.push(cell);
+          }
+        }
         continue;
       }
       knownSum += contribution.value;
@@ -77,13 +85,7 @@ export class InniesOutiesStrategy implements Strategy {
 
     const remaining = houseTotal - knownSum;
 
-    if (unknownInnerCells.length === 0 || remaining < 1) {
-      return;
-    }
-
-    const unsolvedUnknown = unknownInnerCells.filter((c) => !c.isSolved);
-
-    if (unsolvedUnknown.length === 0) {
+    if (unsolvedUnknown.length === 0 || remaining < 1) {
       return;
     }
 
