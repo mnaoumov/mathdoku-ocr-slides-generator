@@ -10,14 +10,10 @@ import type {
 } from './Strategy.ts';
 
 import { CandidatesStrikethrough } from '../cellChanges/CandidatesStrikethrough.ts';
-import {
-  Cell,
-  Operator
-} from '../Puzzle.ts';
+import { Cell } from '../Puzzle.ts';
 import { ensureNonNullable } from '../typeGuards.ts';
 import {
-  adjustTargetForSolvedCells,
-  enumerateValidTuples,
+  collectValidTuples,
   getOperatorsForCage
 } from './cageTupleAnalysis.ts';
 
@@ -52,7 +48,7 @@ export class RequiredCageCandidateStrategy implements Strategy {
       }
 
       const solvedValues = cage.cells.filter((c) => c.isSolved).map((c) => ensureNonNullable(c.value));
-      const validTuples = this.collectValidTuples(unsolvedCells, cage.value, operators, solvedValues);
+      const validTuples = collectValidTuples(unsolvedCells, cage.value, operators, solvedValues);
       if (validTuples.length === 0) {
         continue;
       }
@@ -89,26 +85,6 @@ export class RequiredCageCandidateStrategy implements Strategy {
       changeGroups: allGroups,
       details: allNoteEntries.join('; ')
     };
-  }
-
-  private collectValidTuples(
-    unsolvedCells: readonly Cell[],
-    cageValue: number,
-    operators: readonly Operator[],
-    solvedValues: readonly number[]
-  ): number[][] {
-    const allValidTuples: number[][] = [];
-
-    for (const operator of operators) {
-      const target = adjustTargetForSolvedCells(cageValue, operator, solvedValues);
-      if (target === null) {
-        continue;
-      }
-      const tuples = enumerateValidTuples(unsolvedCells, target, operator);
-      allValidTuples.push(...tuples);
-    }
-
-    return allValidTuples;
   }
 
   private findRequiredValues(validTuples: readonly number[][], puzzleSize: number): number[] {

@@ -37,6 +37,23 @@ export function adjustTargetForSolvedCells(
   return null;
 }
 
+export function collectValidTuples(
+  unsolvedCells: readonly Cell[],
+  cageValue: number,
+  operators: readonly Operator[],
+  solvedValues: readonly number[]
+): number[][] {
+  const allValidTuples: number[][] = [];
+  for (const operator of operators) {
+    const target = adjustTargetForSolvedCells(cageValue, operator, solvedValues);
+    if (target === null) {
+      continue;
+    }
+    allValidTuples.push(...enumerateValidTuples(unsolvedCells, target, operator));
+  }
+  return allValidTuples;
+}
+
 export function enumerateValidTuples(
   unsolvedCells: readonly Cell[],
   target: number,

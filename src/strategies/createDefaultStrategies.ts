@@ -1,6 +1,7 @@
 import type { Strategy } from './Strategy.ts';
 
 import { range } from '../combinatorics.ts';
+import { CageFishStrategy } from './CageFishStrategy.ts';
 import { DeterminedByCageStrategy } from './DeterminedByCageStrategy.ts';
 import { DoesNotDivideProductStrategy } from './DoesNotDivideProductStrategy.ts';
 import { FillAllCandidatesStrategy } from './FillAllCandidatesStrategy.ts';
@@ -47,6 +48,7 @@ export function createStrategies(puzzleSize: number): Strategy[] {
     new NoCageCombinationStrategy(),
     new RequiredCageCandidateStrategy(),
     new InniesOutiesStrategy(),
-    ...range(MIN_FISH_SIZE, Math.floor(puzzleSize / MIN_FISH_SIZE) + 1).map((n) => new FishStrategy(n))
+    ...range(MIN_FISH_SIZE, Math.floor(puzzleSize / MIN_FISH_SIZE) + 1).map((n) => new FishStrategy(n)),
+    ...range(MIN_FISH_SIZE, Math.floor(puzzleSize / MIN_FISH_SIZE) + 1).map((n) => new CageFishStrategy(n))
   ];
 }
