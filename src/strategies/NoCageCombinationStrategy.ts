@@ -9,14 +9,14 @@ import type {
 } from './Strategy.ts';
 
 import { CandidatesStrikethrough } from '../cellChanges/CandidatesStrikethrough.ts';
-import { evaluateTuple } from '../combinatorics.ts';
 import { Operator } from '../Puzzle.ts';
 import { ensureNonNullable } from '../typeGuards.ts';
+import { BINARY_CELL_COUNT } from './cageOperationBounds.ts';
 import {
-  BINARY_CELL_COUNT,
-  canBeOperator,
-  deduceOperator
-} from './cageOperationBounds.ts';
+  adjustTargetForSolvedCells,
+  enumerateValidTuples,
+  getOperatorsForCage
+} from './cageTupleAnalysis.ts';
 
 const MINIMUM_UNSOLVED_CELLS = 2;
 
@@ -43,7 +43,7 @@ export class NoCageCombinationStrategy implements Strategy {
         continue;
       }
 
-      const operators = this.getOperators(puzzle, cage.operator, cage.value, cage.cells.length, puzzle.puzzleSize);
+      const operators = getOperatorsForCage(puzzle.hasOperators, cage.operator, cage.value, cage.cells.length, puzzle.puzzleSize);
       if (operators.length === 0) {
         continue;
       }
@@ -75,28 +75,6 @@ export class NoCageCombinationStrategy implements Strategy {
     };
   }
 
-  private adjustTarget(
-    cageValue: number,
-    operator: Operator,
-    solvedValues: readonly number[]
-  ): null | number {
-    if (solvedValues.length === 0) {
-      return cageValue;
-    }
-    if (operator === Operator.Plus) {
-      return cageValue - solvedValues.reduce((s, v) => s + v, 0);
-    }
-    if (operator === Operator.Times) {
-      const product = solvedValues.reduce((p, v) => p * v, 1);
-      if (product === 0 || cageValue % product !== 0) {
-        return null;
-      }
-      return cageValue / product;
-    }
-    // - and / are binary: if both unsolved, target = cageValue; if 1 unsolved, skip
-    return null;
-  }
-
   private analyzeCage(
     unsolvedCells: readonly Cell[],
     cageValue: number,
@@ -107,12 +85,12 @@ export class NoCageCombinationStrategy implements Strategy {
     const targets = new Map<Operator, number>();
 
     for (const operator of operators) {
-      const target = this.adjustTarget(cageValue, operator, solvedValues);
+      const target = adjustTargetForSolvedCells(cageValue, operator, solvedValues);
       if (target === null) {
         continue;
       }
       targets.set(operator, target);
-      const tuples = this.enumerateValidTuples(unsolvedCells, target, operator);
+      const tuples = enumerateValidTuples(unsolvedCells, target, operator);
       allValidTuples.push(...tuples);
     }
 
@@ -178,46 +156,6 @@ export class NoCageCombinationStrategy implements Strategy {
     }
   }
 
-  private enumerateValidTuples(
-    unsolvedCells: readonly Cell[],
-    target: number,
-    operator: Operator
-  ): number[][] {
-    const tuples: number[][] = [];
-    const cellCount = unsolvedCells.length;
-
-    function search(tuple: number[], depth: number): void {
-      if (depth === cellCount) {
-        if (evaluateTuple(tuple, operator) === target) {
-          tuples.push([...tuple]);
-        }
-        return;
-      }
-      const cell = ensureNonNullable(unsolvedCells[depth]);
-      for (const v of cell.getCandidates()) {
-        let valid = true;
-        for (let i = 0; i < depth; i++) {
-          if (ensureNonNullable(tuple[i]) === v) {
-            const prevCell = ensureNonNullable(unsolvedCells[i]);
-            if (prevCell.row === cell.row || prevCell.column === cell.column) {
-              valid = false;
-              break;
-            }
-          }
-        }
-        if (!valid) {
-          continue;
-        }
-        tuple.push(v);
-        search(tuple, depth + 1);
-        tuple.pop();
-      }
-    }
-
-    search([], 0);
-    return tuples;
-  }
-
   private formatBinaryReason(
     cell: Cell,
     eliminated: readonly number[],
@@ -273,27 +211,5 @@ export class NoCageCombinationStrategy implements Strategy {
       : '';
 
     return `${cell.ref} {${eliminated.join('')}} ${eliminated.length === 1 ? 'has' : 'have'} no valid combination${operatorSuffix}`;
-  }
-
-  private getOperators(
-    puzzle: Puzzle,
-    cageOperator: Operator,
-    cageValue: number,
-    cellCount: number,
-    puzzleSize: number
-  ): Operator[] {
-    if (puzzle.hasOperators && cageOperator !== Operator.Unknown) {
-      return [cageOperator];
-    }
-    const deduced = deduceOperator(cageValue, cellCount, puzzleSize);
-    if (deduced !== Operator.Unknown) {
-      return [deduced];
-    }
-
-    const possibleOperators = cellCount === BINARY_CELL_COUNT
-      ? [Operator.Divide, Operator.Minus, Operator.Plus, Operator.Times]
-      : [Operator.Plus, Operator.Times];
-
-    return possibleOperators.filter((op) => canBeOperator(op, cageValue, cellCount, puzzleSize));
   }
 }
