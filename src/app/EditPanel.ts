@@ -3,7 +3,6 @@ import type { SvgRenderer } from '../SvgRenderer.ts';
 
 enum OperationMode {
   Candidates = 'candidates',
-  Clear = 'clear',
   Strikethrough = 'strikethrough',
   Value = 'value'
 }
@@ -70,14 +69,10 @@ export class EditPanel {
     }
 
     const cells = [...this.selectedCells];
-    let values: number[] = [];
-
-    if (this.currentMode !== OperationMode.Clear) {
-      const digitBtns = this.panel?.querySelectorAll('.btn-digit.selected') ?? [];
-      values = Array.from(digitBtns, (btn) => parseInt(btn.getAttribute('data-digit') ?? '0', 10));
-      if (values.length === 0) {
-        return;
-      }
+    const digitBtns = this.panel?.querySelectorAll('.btn-digit.selected') ?? [];
+    const values = Array.from(digitBtns, (btn) => parseInt(btn.getAttribute('data-digit') ?? '0', 10));
+    if (values.length === 0) {
+      return;
     }
 
     this.queuedGroups.push({ cells, mode: this.currentMode, values });
@@ -97,9 +92,6 @@ export class EditPanel {
       switch (group.mode) {
         case OperationMode.Candidates:
           opPart = group.values.join('');
-          break;
-        case OperationMode.Clear:
-          opPart = 'x';
           break;
         case OperationMode.Strikethrough:
           opPart = `-${group.values.join('')}`;
@@ -148,7 +140,6 @@ export class EditPanel {
           <button class="btn-mode active" data-mode="candidates">Candidates</button>
           <button class="btn-mode" data-mode="strikethrough">Strike</button>
           <button class="btn-mode" data-mode="value">Set Value</button>
-          <button class="btn-mode" data-mode="clear">Clear</button>
         </div>
       </div>
       <div class="edit-section" id="digit-section">
@@ -182,7 +173,6 @@ export class EditPanel {
         }
         btn.classList.add('active');
         this.currentMode = btn.getAttribute('data-mode') as OperationMode;
-        this.updateDigitVisibility();
       });
     }
 
@@ -357,13 +347,6 @@ export class EditPanel {
     this.updateSelectionDisplay();
   }
 
-  private updateDigitVisibility(): void {
-    const digitSection = this.panel?.querySelector('#digit-section');
-    if (digitSection) {
-      (digitSection as HTMLElement).style.display = this.currentMode === OperationMode.Clear ? 'none' : '';
-    }
-  }
-
   private updateQueueDisplay(): void {
     const queueEl = this.panel?.querySelector('#edit-queue');
     if (!queueEl) {
@@ -375,7 +358,7 @@ export class EditPanel {
     }
     queueEl.innerHTML = this.queuedGroups.map((g) => {
       const cellStr = g.cells.join(', ');
-      const valStr = g.mode === OperationMode.Clear ? 'clear' : g.values.join('');
+      const valStr = g.values.join('');
       return `<div class="queue-item">${g.mode}: ${cellStr} = ${valStr}</div>`;
     }).join('');
   }
