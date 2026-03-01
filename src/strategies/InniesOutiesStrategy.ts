@@ -16,6 +16,7 @@ import {
   Operator
 } from '../Puzzle.ts';
 import { ensureNonNullable } from '../typeGuards.ts';
+import { deduceOperator } from './cageOperationBounds.ts';
 
 interface CageContribution {
   readonly innerCells: readonly Cell[];
@@ -71,7 +72,7 @@ export class InniesOutiesStrategy implements Strategy {
     const unsolvedUnknown: Cell[] = [];
 
     for (const [cage, innerCells] of cageMap) {
-      const contribution = this.getCageContribution(cage, innerCells);
+      const contribution = this.getCageContribution(cage, innerCells, puzzle.puzzleSize);
       if (contribution.known) {
         knownSum += contribution.minValue;
         continue;
@@ -264,14 +265,19 @@ export class InniesOutiesStrategy implements Strategy {
     }
   }
 
-  private getCageContribution(cage: Cage, innerCells: readonly Cell[]): CageContribution {
+  private getCageContribution(cage: Cage, innerCells: readonly Cell[], puzzleSize: number): CageContribution {
     // Single-cell cage: value is always known regardless of operator
     if (cage.cells.length === SINGLE_CELL_COUNT) {
       return { innerCells, known: true, maxValue: cage.value, minValue: cage.value };
     }
 
+    // Deduce effective operator for hasOperators: false puzzles
+    const effectiveOperator = cage.operator === Operator.Unknown
+      ? deduceOperator(cage.value, cage.cells, puzzleSize)
+      : cage.operator;
+
     // Only handle + cages for innies/outies sum constraint
-    if (cage.operator !== Operator.Plus) {
+    if (effectiveOperator !== Operator.Plus) {
       return { innerCells, known: false, maxValue: 0, minValue: 0 };
     }
 

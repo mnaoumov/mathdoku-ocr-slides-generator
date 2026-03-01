@@ -489,4 +489,35 @@ describe('InniesOutiesStrategy', () => {
     ) as CandidatesStrikethrough[];
     expect(d1Changes.flatMap((c) => [...c.values])).toEqual([4]);
   });
+
+  it('deduces operator for hasOperators: false puzzles', () => {
+    // 4x4, hasOperators=false. Row 1 total = 10
+    // {A1,B1} value=5, Unknown → deduced + (5 is prime >4, so ×/÷ infeasible; 5≥4 so - infeasible)
+    // Fully in row 1 → known=5.
+    // {C1,C2} 7+ → C2 unsolved candidates {3,4} → inner bounded [3,4] for C1
+    // {D1} Exact value=4 → known=4
+    // KnownSum=5+4=9. Path B: remaining=10-9=1, 1 bounded cell (C1) → C1=1
+    // Without deduction: cage Unknown → A1,B1 unknown innies → no bounded info
+    const cages = [
+      { cells: ['A1', 'B1'], operator: Operator.Unknown, value: 5 },
+      { cells: ['C1', 'C2'], operator: Operator.Plus, value: 7 },
+      { cells: ['D1'], operator: Operator.Exact, value: 4 },
+      { cells: ['A2', 'B2'], operator: Operator.Plus, value: 5 },
+      { cells: ['D2', 'D3'], operator: Operator.Plus, value: 5 },
+      { cells: ['A3', 'A4'], operator: Operator.Plus, value: 5 },
+      { cells: ['B3', 'B4'], operator: Operator.Plus, value: 5 },
+      { cells: ['C3', 'C4'], operator: Operator.Plus, value: 5 },
+      { cells: ['D4'], operator: Operator.Exact, value: 3 }
+    ];
+    const puzzle = createTestPuzzle({ cages, hasOperators: false, puzzleSize: 4 });
+    for (const cell of puzzle.cells) {
+      cell.setCandidates([1, 2, 3, 4]);
+    }
+    puzzle.getCell('C2').setCandidates([3, 4]);
+
+    const result = ensureNonNullable(strategy.tryApply(puzzle));
+    const changes = result.changeGroups.flatMap((g) => g.changes);
+    const c1Value = changes.filter((c) => c instanceof ValueChange && c.cell.ref === 'C1');
+    expect(c1Value.length).toBe(1);
+  });
 });
