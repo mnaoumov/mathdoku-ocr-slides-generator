@@ -38,7 +38,7 @@ wheels = [
 ]
 
 [[package]]
-name = "mathdoku-ocr-ppt-generator"
+name = "mathdoku-ocr-slides-generator"
 version = "0.2.0"
 source = { virtual = "." }
 dependencies = [

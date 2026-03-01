@@ -1,5 +1,5 @@
 [project]
-name = "mathdoku-ocr-ppt-generator"
+name = "mathdoku-ocr-slides-generator"
 version = "0.2.0"
 description = "OCR tool for Mathdoku puzzles"
 requires-python = ">=3.10"
