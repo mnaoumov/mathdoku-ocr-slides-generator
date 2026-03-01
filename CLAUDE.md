@@ -1,58 +1,74 @@
-# Mathdoku OCR + Google Slides Generator
+# Mathdoku OCR + Reveal.js Solver
 
 ## Project Goal
 
-Generate Google Slides presentations for Mathdoku puzzles that can be solved interactively using bound Apps Script. The workflow is: OCR a puzzle screenshot -> YAML spec -> Google Slides presentation -> solve step-by-step in the browser.
+Interactive browser-based Mathdoku puzzle solver with Reveal.js presentations. The workflow is: OCR a puzzle screenshot -> YAML spec -> open in browser app -> solve step-by-step -> export static HTML presentation for recording/archival.
 
 ## Architecture
 
 ### Pipeline
 
 1. **OCR** (`ocr/ocr_mathdoku.py`): Screenshot -> YAML puzzle spec
-2. **Slides Generation** (`scripts/makeMathdokuSlides.ts`): YAML -> Google Slides presentation with bound Apps Script
-3. **Solving** (`apps-script/`): Interactive solving via custom "Mathdoku" menu in Google Slides
+2. **Browser App** (`src/app/`): Load YAML -> interactive solving with Reveal.js slides -> export static HTML
 
-### How It Works
+### Two-Phase Workflow
 
-`scripts/makeMathdokuSlides.ts` is a thin wrapper that:
-1. Uploads `assets/template-960x540.pptx` via Drive API (creates a Google Slides presentation with the correct 960×540 pt page size)
-2. Binds the Apps Script project (pushes all `.js`/`.html` files from `apps-script/`)
-3. Embeds puzzle JSON in the first slide for Init menu to read
+**Phase 1 — Interactive Solving (browser app):**
+1. Open `npm run startSolver -- path/to/puzzle.yaml` (preferred: auto-loads puzzle) or `npm run dev` (manual file picker)
+2. Load puzzle YAML (auto-loaded from server or via file picker)
+3. Init: creates grid + runs initial strategies (synchronous, instant)
+4. Solve interactively: click cells to edit, automated strategies run after each action, undo mistakes
+5. Auto-saved to localStorage continuously
+
+**Phase 2 — Export (static presentation):**
+1. Click "Export" when done
+2. Produces a self-contained Reveal.js HTML file (CSS/JS from CDN) with all SVG slides + speaker notes
+3. Open the exported file to present, record video, archive
 
 ### Key Files
 
-- `scripts/makeMathdokuSlides.ts` - Slides generator: upload PPTX template, bind script, embed puzzle JSON
-- `assets/template-960x540.pptx` - Blank PPTX with 960×540 pt page size (workaround for API bug)
-- `src/Puzzle.ts` - Business logic: Puzzle class, PuzzleRenderer/Strategy interfaces, `initPuzzleSlides()`, types (zero Google Slides dependencies)
-- `src/View.ts` - Google Slides layer: SlidesRenderer class, layout profiles, grid rendering, importPuzzle, global entry points
-- `src/strategies/` - Strategy implementations: cage operation strategies (TooSmallForSum, TooBigForSum, DoesNotDivideProduct, TooSmallForProduct, TooBigForProduct), solving strategies (SingleCandidate, HiddenSingle, NakedSet, LastCellInCage, DeterminedByCage, NoCageCombination), init strategies (FillAllCandidates, SingleCellCage, UniqueCageMultiset)
+- `src/Puzzle.ts` - Business logic: Puzzle class, PuzzleRenderer/Strategy interfaces, `initPuzzleSlides()`, types (zero rendering dependencies)
+- `src/layoutProfiles.ts` - Layout profile interfaces, `LAYOUT_PROFILES` constant (sizes 4-9), color/dimension constants, utility functions (`clamp`, `fitFontSize`, `formatCandidates`, `getLayoutProfile`, `in2pt`, `opSymbol`, `pt`)
+- `src/SvgRenderer.ts` - SVG-based PuzzleRenderer: maintains per-cell visual state, builds SVG slides with pending/committed workflow, clickable cell overlays
+- `src/strategies/` - Strategy implementations: cage operation strategies (TooSmallForSum, TooBigForSum, DoesNotDivideProduct, TooSmallForProduct, TooBigForProduct), solving strategies (SingleCandidate, HiddenSingle, NakedSet, LastCellInCage, DeterminedByCage, NoCageCombination, RequiredCageCandidate, XWing), init strategies (FillAllCandidates, SingleCellCage, UniqueCageMultiset)
+- `src/strategies/cageTupleAnalysis.ts` - Shared cage tuple enumeration functions (`getOperatorsForCage`, `adjustTargetForSolvedCells`, `enumerateValidTuples`) used by NoCageCombination and RequiredCageCandidate
 - `src/cellChanges/` - CellChange subclasses (CandidatesChange, CandidatesStrikethrough, CellClearance, ValueChange)
-- `src/dialogs/` - Dialog source files (TypeScript + CSS + HTML templates), compiled to `dist/*.html` by build
-- `src/dialogs/google.script.d.ts` - Type declarations for client-side `google.script.run`/`google.script.host`
-- `src/dialogs/EnterDialog/` - Enter command dialog (template.html, script.ts, style.css)
-- `src/dialogs/ProgressDialog/` - Progress dialog for Init/strategy application (template.html, script.ts, style.css)
+- `src/app/main.ts` - Browser entry: YAML parsing, puzzle init, Reveal.js setup, keyboard shortcuts, undo, auto-save, server puzzle auto-load
+- `scripts/startSolver.ts` - CLI script: starts Vite dev server with puzzle YAML served at `/api/puzzle`
+- `src/app/RevealApp.ts` - Reveal.js deck management: `initializeReveal()`, `addSlides()`, `removeAfter()`, `navigateToLast()`
+- `src/app/EditPanel.ts` - Click-to-select cell editing panel with operation queue and mandatory comments
+- `src/app/ExportService.ts` - Export static HTML presentation (Reveal.js CDN, all SVG slides + notes)
+- `src/app/StorageService.ts` - localStorage auto-save/restore (keyed by puzzle title)
+- `src/app/index.html` - App HTML shell (file picker + Reveal.js container + toolbar)
+- `src/app/style.css` - App styles (edit panel, cell overlays, toolbar)
+- `src/app/reveal.js.d.ts` - Type declarations for reveal.js module
 - `ocr/ocr_mathdoku.py` - OCR: uses OpenCV + Tesseract to extract puzzle from screenshot
 - `tests/fixtures/` - YAML specs and reference images for various puzzles
 
-### Shape Naming Convention (Google Slides)
+### SVG Rendering (`SvgRenderer.ts`)
 
-Shape titles (set via `shape.setTitle()`):
-- `VALUE_A1` - Cell's final value (centered, bold, gray)
-- `CANDIDATES_A1` - Cell's candidate digits (Consolas, 2-line fixed-position layout)
-- `CAGE_0_A1` - Cage label with operation (e.g., "12+")
-- `SOLVE_NOTES_COL1/COL2` - Editable note columns
+Implements `PuzzleRenderer` interface using SVG string generation. ViewBox `0 0 960 540` — coordinates map 1:1 to layout profile pt values.
 
-Puzzle state stored in DocumentProperties as JSON.
+**State model:**
+- Maintains per-cell visual state: value, candidates, colors (normal/green), strikethrough flags
+- `initGrid()` — initializes grid context, cell states, builds static grid SVG (boundaries, labels, etc.)
+- `beginPendingRender()` — snapshots current cell states
+- `renderPending*()` methods — apply green overlays/strikethrough to cell states
+- `renderCommittedChanges()` — builds pending SVG (green overlays from snapshot) + committed SVG (finalized colors), pushes both to `slides[]`
 
-### Solving Workflow (MVC)
+**Static grid SVG** (cached, drawn once): title, thin grid, cage boundaries, join squares, outer border, axis labels, cage labels, footer, solve notes. Same draw order and geometry as the layout spec.
 
-The Apps Script code follows an MVC pattern:
+**Clickable cell overlays:** each cell gets a transparent `<rect>` with `data-cell="A1"` class `cell-overlay` for EditPanel click handlers.
+
+### Solving Workflow
+
+The app follows the same MVC pattern as the original:
 - **Puzzle** (model+logic in `Puzzle.ts`): maintains cell values/candidates, parses Enter commands, runs strategies
-- **SlidesRenderer** (view in `View.ts`): implements `PuzzleRenderer` interface, handles all Google Slides rendering
-- **Strategies** (one file each): implement `Strategy` interface, called by Puzzle's strategy loop. Each strategy returns `StrategyResult` with `changeGroups: ChangeGroup[]` (each group pairs changes with a reason) and a `note` string
+- **SvgRenderer** (view): implements `PuzzleRenderer` interface with SVG rendering
+- **Strategies** (one file each): implement `Strategy` interface, called by Puzzle's strategy loop
 
 Flow:
-1. **Enter**: Opens modal dialog. User input parsed by `Puzzle.buildEnterChanges()`. Changes rendered in green via `renderPendingChanges` (duplicates slide first, then applies green).
+1. **Edit** (via EditPanel): User clicks cells, chooses operation, enters comment. Submit builds a command string, calls `puzzle.enter(cmd)` + `puzzle.commit()` + `puzzle.tryApplyAutomatedStrategies()`.
    - `=N` sets value, `digits` adds candidates, `-digits` strikethroughs candidates, `x` clears cell
    - Cell selection syntax (brackets optional for single cell/cage, required for groups):
      - `D3:op` or `(D3):op` — single cell
@@ -65,8 +81,12 @@ Flow:
      - `(@A3-(B3 A4)):op` — cage of A3 minus multiple cells
    - `// comment` at end of input is stripped from execution but included in slide notes
    - Comment-only input (no commands) throws an error
-2. **Commit**: Calls `renderCommittedChanges` which duplicates slide and finalizes green changes (green→normal, strikethrough→removed).
-3. **Apply Automated Strategies** (`tryApplyAutomatedStrategies`): Runs strategy loop (single candidate → hidden single → naked set k=2,3,...) until no more progress. Returns `boolean` (true if any strategy applied).
+2. **Commit**: `renderCommittedChanges` builds pending SVG (green changes) then committed SVG (finalized) — both pushed as slides.
+3. **Automated strategies** run automatically after init and after each manual edit via `tryApplyAutomatedStrategies()`. No explicit trigger needed.
+
+### Undo
+
+History stack of `{slideCount, cellState}` snapshots. On undo: pop entry, remove slides after `slideCount`, rebuild Puzzle from saved cell state (values + candidates). Keyboard shortcut: `Ctrl+Z`.
 
 ### Slide Notes
 
@@ -75,38 +95,15 @@ Every action records its description in slide speaker notes for an audit trail:
 - **Enter**: the full input string (including `//` comments) is recorded
 - **Automated strategies**: "Applying automated strategies" on each step
 - Each action produces 2 slides (pending + committed), both get the note
-- **Invariant**: at any point in time, only the very last slide has no note text. Notes are set on the SOURCE slide during `makeNextSlide` (the current slide before duplication); the new (duplicated) slide's notes are cleared. When no more strategies fire, `applyOneStep` clears notes on the last slide.
 
-Note text is set via `PuzzleRenderer.setNoteText()` from business logic (`Puzzle.enter()`, `Puzzle.tryApplyAutomatedStrategies()`, `initPuzzleSlides()`), not from View callers.
+Note text is set via `PuzzleRenderer.setNoteText()` from business logic (`Puzzle.enter()`, `Puzzle.tryApplyAutomatedStrategies()`, `initPuzzleSlides()`), not from app callers.
 
-### Progress Dialog (Chunked Execution)
+### localStorage Persistence (`StorageService.ts`)
 
-Init and Apply Automated Strategies use a modal progress dialog (`dist/ProgressDialog.html`) for real-time feedback and cancellation support. Since SlidesApp is single-threaded, progress is achieved via client-driven chunked execution: the dialog calls the server once per strategy step via `google.script.run`, updates the UI between calls.
-
-**Server functions** (exported from `View.ts`):
-- `initGridSetup(puzzleJsonStr)` — creates grid layout, saves mathdokuState (everything `importPuzzle` does except strategy application)
-- `applyOneStep()` — rebuilds puzzle from cached cell state (falls back to slide if cache miss), tries one strategy, returns `StepResult { applied, message? }`. Tracks initial strategy index in cache so each initial strategy is tried exactly once; after exhausting them, switches to automated strategies. When no strategy fires, clears notes on the last slide.
-- `getRevertState()` — returns `{ slideCount, lastSlideNotes }` for revert baseline
-- `revertOperation(targetSlideCount, savedNotes)` — deletes slides after target count, restores notes
-- `finishInit()` — updates menu and selects last slide after init completes
-- `submitEnterCommand(input)` — applies enter + commit, then opens ProgressDialog for strategies
-
-**`tryApplyOneStrategyStep(strategies)`** on Puzzle class: iterates provided strategies, applies first match, returns `StepResult`. Used by `applyOneStep()` for single-step execution.
-
-**Initial vs automated strategies:** `applyOneStep()` handles both phases internally. It uses `CacheService` to track which initial strategy to try next (set by `initGridSetup`). Each initial strategy is tried exactly once in order; those that don't fire are skipped. Once all initial strategies are exhausted, automated strategies take over. The dialog just calls `applyOneStep()` in a loop — no mode parameter needed.
-
-**Cell state caching:** `applyOneStep()` uses `CacheService` to cache cell values and candidates between calls (`CELL_STATE_CACHE_KEY`). After each successful strategy step, the updated cell state is saved to cache via `saveCellState()`. On cache miss, falls back to `buildPuzzleFromSlide()` (slower, reads shapes from the slide). `initGridSetup()` seeds the cache with empty state; `submitEnterCommand()` saves state after enter+commit; `revertOperation()` clears the cache.
-
-**Flows:**
-- **Init**: validates puzzle data → stores JSON in CacheService → opens ProgressDialog → dialog calls `initGridSetup()` → loops `applyOneStep()` → calls `finishInit()`
-- **Enter**: EnterDialog calls `submitEnterCommand(cmd)` → enter + commit → opens ProgressDialog → loops `applyOneStep()`
-- **Cancel**: dialog calls `revertOperation()` to delete added slides and restore notes
-
-### Last Slide Guard
-
-All commands (`enter()`, `tryApplyAutomatedStrategies()`) check `PuzzleRenderer.ensureLastSlide()` before proceeding. If the user is not on the last slide, an alert is shown and the command is aborted. This prevents accidental modifications to intermediate slides. The `addChanges()` dialog opener also checks via the View-layer `ensureLastSlideSelected()`.
-
-Note: `selectAsCurrentPage()` is the only Google Slides API for navigating to a slide. It selects the slide but does not reliably scroll the thumbnail panel — this is a known editor limitation.
+Auto-saves after every action. Keyed by puzzle title with storage keys per puzzle. All `JSON.parse()` calls are validated with zod schemas (invalid data returns `null`):
+- `mathdoku_{title}_state` — cell values and candidates
+- `mathdoku_{title}_slides` — all SVG slide snapshots
+- `mathdoku_{title}_history` — undo history stack
 
 ## TypeScript
 
@@ -121,16 +118,13 @@ Note: `selectAsCurrentPage()` is the only Google Slides API for navigating to a 
 - Single quotes, no trailing commas, 1tbs brace style, semicolons required
 - `.editorconfig`: 2-space indent, LF line endings, UTF-8
 
-### Dialog Build
+### Build
 
-Dialog HTML files (`dist/EnterDialog.html`, `dist/ProgressDialog.html`) are generated by `scripts/build.ts` from source files in `src/dialogs/`. Each dialog has a subfolder with:
-- `template.html` — HTML skeleton with `/*__STYLE__*/` and `/*__SCRIPT__*/` injection markers
-- `script.ts` — TypeScript source (compiled to JS via esbuild, type-checked by tsc)
-- `style.css` — Extracted CSS
-
-The build step (`buildDialogs()` in `scripts/build.ts`) compiles TS→JS via `esbuild.transform()`, then injects CSS and JS into the template markers. The `google.script.d.ts` file declares types for the client-side `google.script.run` and `google.script.host` APIs.
-
-Dialog scripts use `/// <reference lib="dom" />` for DOM types. They are plain scripts (no `import`/`export`) since they run inside `<script>` tags. Inline `onclick` handlers are replaced with `addEventListener` calls for type safety.
+- `npm run startSolver -- path/to/puzzle.yaml` — Start solver with pre-loaded puzzle (preferred workflow)
+- `npm run dev` — Vite dev server with hot reload and manual file picker (config: `vite.config.app.ts`, root: `src/app/`)
+- `npm run build` — Vite production build to `dist/` (via `scripts/build.ts`)
+- Entry point: `src/app/index.html` with `<script type="module" src="./main.ts">`
+- Bundled dependencies: `js-yaml` (YAML parsing), `reveal.js` (presentation framework), `zod` (runtime validation)
 
 ## Conventions
 
@@ -142,20 +136,22 @@ This is enforced structurally: `StrategyResult.changeGroups` is an array of `Cha
 
 ### Operator enum
 
-Cage operators use the `Operator` string enum (in `Puzzle.ts`): `Plus = '+'`, `Minus = '-'`, `Times = 'x'`, `Divide = '/'`, `Unknown = '?'`. The OCR normalizes all Unicode variants (×, ÷, etc.) to these four known operators before writing YAML. `Operator.Unknown` is an internal sentinel for cages without a specified operator (puzzles with `hasOperators: false`); it never appears in YAML. The `'?'` value may appear in serialized `PuzzleState` JSON and is accepted on deserialization. `CageRaw.operator` and `Cage.operator` are always `Operator` (never `undefined`).
+Cage operators use the `Operator` string enum (in `Puzzle.ts`): `Plus = '+'`, `Minus = '-'`, `Times = 'x'`, `Divide = '/'`, `Unknown = '?'`. The OCR normalizes all Unicode variants (x, /, etc.) to these four known operators before writing YAML. `Operator.Unknown` is an internal sentinel for cages without a specified operator (puzzles with `hasOperators: false`); it never appears in YAML. The `'?'` value may appear in serialized `PuzzleState` JSON and is accepted on deserialization. `CageRaw.operator` and `Cage.operator` are always `Operator` (never `undefined`).
 
-- Generate slides: `npm run makeMathdokuSlides tests/fixtures/Blog15.yaml`
+- Start solver: `npm run startSolver -- path/to/puzzle.yaml`
+- Run dev server (file picker): `npm run dev`
+- Build for production: `npm run build`
 - Run OCR: `npm run ocrMathdoku screenshot.png`
 - YAML fixtures go in `tests/fixtures/`
-- Grid sizes 4-9 supported, each with a hardcoded layout profile in `LAYOUT_PROFILES` (in View.ts)
-- Color constants defined in `View.ts`
+- Grid sizes 4-9 supported, each with a hardcoded layout profile in `LAYOUT_PROFILES` (in `layoutProfiles.ts`)
+- Color constants defined in `layoutProfiles.ts`
 - Font: "Segoe UI" for title, labels, values, notes; "Consolas" for candidates (per layout spec)
 
 ## Testing
 
 - `npm test` runs vitest unit tests for Puzzle logic, strategies, parsers, combinatorics, cage constraints
 - `uv run pytest` runs OCR tests. Don't run them unless OCR code changed.
-- For Google Slides rendering changes, test manually: generate a presentation and verify in the browser.
+- For rendering changes, test manually: run `npm run dev`, load a YAML fixture, verify in the browser.
 - `TrackingRenderer` (in `__tests__/puzzleTestHelper.ts`) is the test double for `PuzzleRenderer` — tracks `notesBySlide`, `slideCount`, and has a configurable `isLastSlide` flag for guard testing.
 - `createTestPuzzle()` accepts an optional `renderer` parameter to inject a `TrackingRenderer` the test holds a reference to (avoids `as TrackingRenderer` casts).
 
@@ -165,25 +161,24 @@ After every confirmed change, keep this file (`CLAUDE.md`) in sync with the curr
 
 ## Dependencies
 
-- Node: googleapis, js-yaml (runtime); typescript, eslint, cspell (dev) — see `package.json`
+- Node: js-yaml, reveal.js, zod (runtime); typescript, eslint, cspell, vite (dev) — see `package.json`
 - Python: opencv-python, numpy, pytesseract, pyyaml — see `pyproject.toml`
-- System: Tesseract OCR, gcloud CLI
-- Google Cloud: OAuth Desktop credentials (`credentials.json`), APIs enabled: Slides, Drive, Apps Script
+- System: Tesseract OCR
 
 ---
 
 ## Slide layout spec (pixel-perfect reference)
 
-The following is the canonical layout specification. `apps-script/View.ts` must implement it exactly so that Google Slides output matches the reference (former PowerPoint generator) one-to-one. All layout values come from the profiles below; convert inches to points with **1 in = 72 pt** and **round every position and size to integer pt** before passing to the Slides API.
+The following is the canonical layout specification. `src/SvgRenderer.ts` implements it using SVG with coordinates from `src/layoutProfiles.ts`. All layout values come from the profiles below; convert inches to points with **1 in = 72 pt** and **round every position and size to integer pt**.
 
 ### Visual reference
 
-**The canonical visual reference for pixel-perfect layout is `docs/screenshot-blog19-current.png`** (the correct/reference rendering from the PowerPoint generator: clean grid, thick black cage boundaries, thin grey lines between cells within the same cage, small black join dots at vertices, cage numbers in consistent positions, row labels 1–5 and column labels A–E). Compare all Google Slides output against it. Any deviation (missing/extra grey lines, missing row 5 label, wrong cage number placement, join dots missing or wrong) is a bug.
+**The canonical visual reference for pixel-perfect layout is `docs/screenshot-blog19-current.png`** (clean grid, thick black cage boundaries, thin grey lines between cells within the same cage, small black join dots at vertices, cage numbers in consistent positions, row labels 1-5 and column labels A-E). Compare all rendering output against it.
 
 ### Slide dimensions
 
-- **Reference size:** 13.333 in × 7.5 in = **960 pt × 540 pt** (16:9).
-- Create the slide at this size so no scaling is applied for the default case.
+- **Reference size:** 13.333 in x 7.5 in = **960 pt x 540 pt** (16:9).
+- SVG viewBox: `0 0 960 540`.
 
 ### Colors
 
@@ -197,8 +192,9 @@ The following is the canonical layout specification. `apps-script/View.ts` must 
 | Black (lines)   | `#000000` | (0, 0, 0)        |
 | Footer         | `#6E7887` | (110, 120, 135)  |
 | Solve notes border | `#C8C8C8` | (200, 200, 200) |
+| Green (pending)| `#008000` | (0, 128, 0)      |
 
-### Layout profiles (sizes 4–9)
+### Layout profiles (sizes 4-9)
 
 All linear dimensions in the table are **in inches** unless marked as pt. Fractions are unitless (fraction of cell size).
 
@@ -238,55 +234,28 @@ All linear dimensions in the table are **in inches** unless marked as pt. Fracti
 
 ### Draw order
 
-1. Value and candidates boxes (one per cell).
-2. Thin internal grid (grey rectangles between cells within the same cage).
-3. Cage boundaries (thick black).
+1. Value and candidates text (one per cell).
+2. Thin internal grid (grey `<rect>` between cells within the same cage).
+3. Cage boundaries (thick black `<rect>`).
 4. Thick join squares at inner vertices where any cage boundary touches.
-5. Outer border (thick black).
-6. Axis labels (column letters, row numbers).
+5. Outer border (thick black `<rect>`).
+6. Axis labels (column letters, row numbers — `<text>` elements).
 7. Cage labels (one per cage, top-left cell).
 8. Footer.
 9. Solve notes columns.
 
-### Geometry (all in inches in spec; convert to pt and round for API)
+### Geometry (all in inches in spec; convert to pt and round)
 
-- **Title:** left = 0.2 in, top = 0.05 in, width = slide_width − 0.4 in (e.g. 13.333 − 0.4), height = title_h_in. Two lines: title (bold, title_sz) and meta (not bold, meta_sz). Paragraph alignment CENTER, vertical anchor TOP.
-- **Footer:** left = 0.4 in, top = slide_height − 0.45 in, width = slide_width − 0.8 in, height = 0.3 in. Font 14, alignment RIGHT.
+- **Title:** left = 0.2 in, top = 0.05 in, width = slide_width - 0.4 in (e.g. 13.333 - 0.4), height = title_h_in. Two lines: title (bold, title_sz) and meta (not bold, meta_sz). Paragraph alignment CENTER, vertical anchor TOP.
+- **Footer:** left = 0.4 in, top = slide_height - 0.45 in, width = slide_width - 0.8 in, height = 0.3 in. Font 14, alignment RIGHT.
 - **Grid:** grid_left, grid_top, grid_size from profile; cell_w = grid_size / n.
-- **Value box (per cell):** left = grid_left + c×cell_w, top = grid_top + r×cell_w + value.y_frac×cell_w, width = cell_w, height = value.h_frac×cell_w. Content: MIDDLE, CENTER. Font value.font.
-- **Candidates box (per cell):** left = grid_left + c×cell_w + candidates.x_frac×cell_w, top = grid_top + r×cell_w + candidates.y_frac×cell_w, width = candidates.w_frac×cell_w, height = candidates.h_frac×cell_w. Vertical anchor BOTTOM, paragraph LEFT. Font candidates.font; letter-spacing = candidates.digit_margin pt. Reference font: Consolas (use Consolas for pixel-perfect match).
-- **Boundaries:** v_bound[r][c−1] = true if cell (r,c−1) and (r,c) are in different cages. h_bound[r−1][c] = true if cell (r−1,c) and (r,c) are in different cages.
-- **Thin grid:** Drawn as filled rectangles (not lines — `insertLine` has different z-order than `insertShape` in Google Slides, causing lines to render on top of shapes). For each vertical gap between columns c−1 and c (c = 1..n−1), for each row r (0..n−1): if **not** v_bound[r][c−1], draw a thin_pt-wide rectangle at (grid_left + c×cell_w − thin_pt/2, grid_top + r×cell_w, thin_pt, cell_w). Horizontal: for each row gap r (r = 1..n−1), for each col c (0..n−1): if **not** h_bound[r−1][c], draw (grid_left + c×cell_w, grid_top + r×cell_w − thin_pt/2, cell_w, thin_pt). Fill THIN_GRAY, border transparent. No shortening needed — thick cage boundary rectangles drawn afterward cover any overlap.
-- **Thick line geometry:** thick_w = thick_pt / 72 (in inches; in pt use thick_pt). inset = thick_pt / 144 (in inches; in pt use thick_pt/2). Cage boundary segments: vertical at x = grid_left + c×cell_w, from y1 to y2; if r0 == 0 then y1 += inset; if r1 == n−1 then y2 −= inset. Rect: left = x − thick_w/2, top = y1, width = thick_w, height = y2−y1. Horizontal analogous (x1, x2 with inset at edges).
-- **Join squares:** At vertex (vr, vc) with vr, vc in 1..n−1, if any of v_bound[vr−1][vc−1], v_bound[vr][vc−1], h_bound[vr−1][vc−1], h_bound[vr−1][vc] is true: center (x, y) = (grid_left + vc×cell_w, grid_top + vr×cell_w). left = clamp(x − thick_w/2, grid_left, grid_left + grid_size − thick_w), top = clamp(y − thick_w/2, grid_top, grid_top + grid_size − thick_w), size thick_w × thick_w.
-- **Outer border:** half = thick_w/2. Top: (grid_left − half, grid_top − half, grid_size + thick_w, thick_w). Bottom: (grid_left − half, grid_top + grid_size − half, grid_size + thick_w, thick_w). Left: (grid_left − half, grid_top + half, thick_w, max(0, grid_size − thick_w)). Right: (grid_left + grid_size − half, grid_top + half, thick_w, max(0, grid_size − thick_w)).
-- **Axis labels:** top_offset, side_offset in inches. top_y = grid_top − top_offset, side_x = grid_left − side_offset. Column c: box at (grid_left + c×cell_w, top_y), size (cell_w, axis_label_h). Text centered. Row r: box at (side_x, grid_top + r×cell_w + (cell_w − axis_label_h)/2), size (axis_label_w, axis_label_h). Vertical anchor MIDDLE, text centered.
-- **Cage labels:** Top-left cell of cage = geometric min (smallest row, then smallest column). x = grid_left + tl.c×cell_w + cage.inset_x_frac×cell_w, y = grid_top + tl.r×cell_w + cage.inset_y_frac×cell_w. Box size (cage.box_w_frac×cell_w, cage.box_h_frac×cell_w). Vertical anchor TOP, paragraph LEFT. Font: use cage.font, or fit: actual_font = max(7, min(cage.font, floor((box_w_pt−10)/(0.60×len)), floor((box_h_pt−1)/1.15)) so long labels shrink. The 10 pt padding accounts for Google Slides' default horizontal text box insets (~0.05 in per side), which are not settable via API.
-- **Solve notes:** For i = 0..cols−1: left = solve.left_in + i×(solve.col_w_in + solve.col_gap_in), top = grid_top, width = solve.col_w_in, height = grid_size. Border 1 pt, color solve notes border.
-
-### Deviations (Slides vs reference)
-
-- **Candidates letter-spacing:** The reference applies `candidates.digit_margin` (pt) as character spacing. The Google Slides Apps Script **TextStyle API does not expose letter/character spacing**, so this cannot be applied; candidate digits use default spacing. Box position/size and font match.
-- **Solve notes inner margins:** The reference sets text margins (e.g. 0.08 in) inside the solve notes boxes. Slides does not set these explicitly; box position and size match.
-- **Thin grid as rectangles:** The reference draws thin lines using actual line objects. Google Slides renders `insertLine` on top of `insertShape` regardless of insertion order, so thin grid segments are drawn as thin filled rectangles instead. Visually identical.
-- **Rounding:** All coordinates and sizes are rounded to integer pt before the API. The reference rounded to integer EMU; the net effect is equivalent for layout.
-
-### Google Slides API quirks
-
-1. **`presentations.create` ignores `pageSize`** — known bug ([issuetracker #119321089](https://issuetracker.google.com/issues/119321089)). All presentations are created at the default 720×405 pt (10×5.625 in). Workaround: upload a PPTX template with the correct dimensions via the Drive API with MIME conversion (`mimeType: 'application/vnd.google-apps.presentation'`). The template is at `assets/template-960x540.pptx`.
-
-2. **Page size is read-only after creation.** `updatePageProperties` cannot change `pageSize`. There is no API to resize a presentation after creation.
-
-3. **Text box margins/insets are not settable via API** ([issuetracker #209837879](https://issuetracker.google.com/issues/209837879), status: blocked). `insertTextBox` creates boxes with ~0.05 in default top/bottom padding. The original Python generator set `margin_top=0` via python-pptx. Workaround: shift box positions up by 0.05 in to compensate (applied to column labels; row labels use MIDDLE vertical anchor where equal top/bottom padding cancels out).
-
-4. **`insertLine()` renders on top of `insertShape()`** regardless of insertion order. Thin grid segments must be drawn as `insertShape(RECTANGLE)` filled with THIN_GRAY, not as lines.
-
-### Implementation notes
-
-1. **Thin grid drawn as rectangles, not lines.** See quirk #4 above. Thick cage boundary rectangles drawn afterward naturally cover any overlap at shared edges.
-
-2. **Join squares at cage boundary vertices.** Drawn as thick_pt × thick_pt black rectangles at every interior vertex where **any** cage boundary touches (not just where 2+ meet). They blend in with thick boundaries.
-
-3. **Row labels 1–n must all be visible.** The Google Slides editor may crop the bottom in the viewport, but the actual slide content is correct at 960×540 pt.
-
-4. **Scale / slide size.** Slide is 960×540 pt (via PPTX template upload). Scaling is only applied when the page size differs.
+- **Value box (per cell):** left = grid_left + c*cell_w, top = grid_top + r*cell_w + value.y_frac*cell_w, width = cell_w, height = value.h_frac*cell_w. Content: MIDDLE, CENTER. Font value.font.
+- **Candidates box (per cell):** left = grid_left + c*cell_w + candidates.x_frac*cell_w, top = grid_top + r*cell_w + candidates.y_frac*cell_w, width = candidates.w_frac*cell_w, height = candidates.h_frac*cell_w. Vertical anchor BOTTOM, paragraph LEFT. Font candidates.font; letter-spacing = candidates.digit_margin pt. Font: Consolas.
+- **Boundaries:** v_bound[r][c-1] = true if cell (r,c-1) and (r,c) are in different cages. h_bound[r-1][c] = true if cell (r-1,c) and (r,c) are in different cages.
+- **Thin grid:** Filled `<rect>` elements. For each vertical gap between columns c-1 and c (c = 1..n-1), for each row r (0..n-1): if **not** v_bound[r][c-1], draw a thin_pt-wide rect at (grid_left + c*cell_w - thin_pt/2, grid_top + r*cell_w, thin_pt, cell_w). Horizontal: for each row gap r (r = 1..n-1), for each col c (0..n-1): if **not** h_bound[r-1][c], draw (grid_left + c*cell_w, grid_top + r*cell_w - thin_pt/2, cell_w, thin_pt).
+- **Thick line geometry:** thick_w = thick_pt (in pt). inset = thick_pt/2. Cage boundary segments: vertical at x = grid_left + c*cell_w, from y1 to y2; if r0 == 0 then y1 += inset; if r1 == n-1 then y2 -= inset. Rect: left = x - thick_w/2, top = y1, width = thick_w, height = y2-y1. Horizontal analogous.
+- **Join squares:** At vertex (vr, vc) with vr, vc in 1..n-1, if any adjacent cage boundary exists: center (x, y) = (grid_left + vc*cell_w, grid_top + vr*cell_w). left = clamp(x - thick_w/2, grid_left, grid_left + grid_size - thick_w), top = clamp(y - thick_w/2, grid_top, grid_top + grid_size - thick_w), size thick_w x thick_w.
+- **Outer border:** half = thick_w/2. Top: (grid_left - half, grid_top - half, grid_size + thick_w, thick_w). Bottom: (grid_left - half, grid_top + grid_size - half, grid_size + thick_w, thick_w). Left: (grid_left - half, grid_top + half, thick_w, max(0, grid_size - thick_w)). Right: (grid_left + grid_size - half, grid_top + half, thick_w, max(0, grid_size - thick_w)).
+- **Axis labels:** top_offset, side_offset in inches. top_y = grid_top - top_offset, side_x = grid_left - side_offset. Column c: centered at (grid_left + c*cell_w + cell_w/2, top_y + axis_label_h/2). Row r: centered at (side_x + axis_label_w/2, grid_top + r*cell_w + cell_w/2).
+- **Cage labels:** Top-left cell of cage = geometric min (smallest row, then smallest column). x = grid_left + tl.c*cell_w + cage.inset_x_frac*cell_w, y = grid_top + tl.r*cell_w + cage.inset_y_frac*cell_w. Box size (cage.box_w_frac*cell_w, cage.box_h_frac*cell_w). Font: use cage.font, or fit: actual_font = max(7, min(cage.font, floor((box_w_pt-10)/(0.60*len)), floor((box_h_pt-1)/1.15)).
+- **Solve notes:** For i = 0..cols-1: left = solve.left_in + i*(solve.col_w_in + solve.col_gap_in), top = grid_top, width = solve.col_w_in, height = grid_size. Border 1 pt, color solve notes border.
