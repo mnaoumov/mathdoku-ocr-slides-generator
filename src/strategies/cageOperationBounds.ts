@@ -1,5 +1,6 @@
 import type {
   Cell,
+  House,
   HouseType
 } from '../Puzzle.ts';
 
@@ -83,20 +84,29 @@ function computeHouseBound(
   boundType: 'max' | 'min',
   houseType: HouseType
 ): number {
-  const groups = new Map<number, number>();
+  const groups = new Map<number, Cell[]>();
   for (const cell of otherCells) {
     const houseId = houseType === 'row' ? cell.row.id : cell.column.id;
-    groups.set(houseId, (groups.get(houseId) ?? 0) + 1);
+    const existing = groups.get(houseId);
+    if (existing) {
+      existing.push(cell);
+    } else {
+      groups.set(houseId, [cell]);
+    }
   }
 
   const targetHouseId = houseType === 'row' ? targetCell.row.id : targetCell.column.id;
 
   let result = aggregateType === 'sum' ? 0 : 1;
 
-  for (const [houseId, count] of groups) {
-    const excludeValue = houseId === targetHouseId ? value : undefined;
+  for (const [houseId, cells] of groups) {
+    const house = houseType === 'row' ? ensureNonNullable(cells[0]).row : ensureNonNullable(cells[0]).column;
+    const excluded = solvedValuesInHouse(house);
+    if (houseId === targetHouseId) {
+      excluded.add(value);
+    }
     const fn = boundType === 'min' ? minDistinctAggregate : maxDistinctAggregate;
-    const groupBound = fn(count, puzzleSize, aggregateType, excludeValue);
+    const groupBound = fn(cells.length, puzzleSize, aggregateType, excluded);
     result = aggregateType === 'sum' ? result + groupBound : result * groupBound;
   }
 
@@ -137,12 +147,12 @@ function maxDistinctAggregate(
   count: number,
   puzzleSize: number,
   aggregateType: 'product' | 'sum',
-  excludedValue?: number
+  excludedValues: ReadonlySet<number>
 ): number {
   let result = aggregateType === 'sum' ? 0 : 1;
   let picked = 0;
   for (let v = puzzleSize; v >= 1 && picked < count; v--) {
-    if (v !== excludedValue) {
+    if (!excludedValues.has(v)) {
       result = aggregateType === 'sum' ? result + v : result * v;
       picked++;
     }
@@ -154,15 +164,25 @@ function minDistinctAggregate(
   count: number,
   puzzleSize: number,
   aggregateType: 'product' | 'sum',
-  excludedValue?: number
+  excludedValues: ReadonlySet<number>
 ): number {
   let result = aggregateType === 'sum' ? 0 : 1;
   let picked = 0;
   for (let v = 1; v <= puzzleSize && picked < count; v++) {
-    if (v !== excludedValue) {
+    if (!excludedValues.has(v)) {
       result = aggregateType === 'sum' ? result + v : result * v;
       picked++;
     }
   }
   return result;
+}
+
+function solvedValuesInHouse(house: House): Set<number> {
+  const values = new Set<number>();
+  for (const cell of house.cells) {
+    if (cell.isSolved && cell.value !== null) {
+      values.add(cell.value);
+    }
+  }
+  return values;
 }

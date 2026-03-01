@@ -27,12 +27,7 @@ export function createInitialStrategies(): Strategy[] {
   return [
     new FillAllCandidatesStrategy(),
     new SingleCellCageStrategy(),
-    new UniqueCageMultisetStrategy(),
-    new DoesNotDivideProductStrategy(),
-    new TooSmallForSumStrategy(),
-    new TooBigForSumStrategy(),
-    new TooSmallForProductStrategy(),
-    new TooBigForProductStrategy()
+    new UniqueCageMultisetStrategy()
   ];
 }
 
@@ -43,6 +38,11 @@ export function createStrategies(puzzleSize: number): Strategy[] {
     new LastCellInCageStrategy(),
     ...range(MIN_NAKED_SET_SIZE, puzzleSize).map((n) => new NakedSetStrategy(n)),
     ...range(MIN_NAKED_SET_SIZE, puzzleSize).map((n) => new HiddenSetStrategy(n)),
+    new TooSmallForSumStrategy(),
+    new TooBigForSumStrategy(),
+    new DoesNotDivideProductStrategy(),
+    new TooSmallForProductStrategy(),
+    new TooBigForProductStrategy(),
     new DeterminedByCageStrategy(),
     new NoCageCombinationStrategy(),
     new RequiredCageCandidateStrategy(),

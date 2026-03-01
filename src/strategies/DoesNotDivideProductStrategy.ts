@@ -43,6 +43,10 @@ export class DoesNotDivideProductStrategy extends CageOperationStrategy {
   }
 
   protected shouldEliminate(value: number, ctx: CageContext): boolean {
-    return ctx.cageValue % value !== 0;
+    if (ctx.cageValue % value !== 0) {
+      return true;
+    }
+    const totalProduct = value * ctx.solvedProduct;
+    return ctx.cageValue % totalProduct !== 0;
   }
 }
