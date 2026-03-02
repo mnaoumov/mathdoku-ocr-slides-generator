@@ -472,18 +472,36 @@ export class Puzzle {
   private augmentCandidateChanges(changes: readonly CellChange[]): readonly CellChange[] {
     const augmented: CellChange[] = [];
     for (const change of changes) {
-      augmented.push(change);
       if (change instanceof CandidatesChange) {
         const toStrikethrough: number[] = [];
         const peerValueSet = new Set(change.cell.peerValues);
+        const droppedCandidates: number[] = [];
+        if (change.cell.candidateCount > 0) {
+          for (const v of change.cell.getCandidates()) {
+            if (!change.values.includes(v)) {
+              droppedCandidates.push(v);
+            }
+          }
+        }
+        if (droppedCandidates.length > 0) {
+          const expandedValues = [...change.values, ...droppedCandidates].sort((a, b) => a - b);
+          augmented.push(new CandidatesChange(change.cell, expandedValues));
+        } else {
+          augmented.push(change);
+        }
         for (const v of change.values) {
           if (peerValueSet.has(v) || (change.cell.candidateCount > 0 && !change.cell.hasCandidate(v))) {
             toStrikethrough.push(v);
           }
         }
+        for (const v of droppedCandidates) {
+          toStrikethrough.push(v);
+        }
         if (toStrikethrough.length > 0) {
           augmented.push(new CandidatesStrikethrough(change.cell, toStrikethrough));
         }
+      } else {
+        augmented.push(change);
       }
     }
     return augmented;

@@ -716,6 +716,49 @@ describe('renderer calls', () => {
     expect(beginSpy).not.toHaveBeenCalled();
   });
 
+  it('dropped candidates rendered as strikethrough when setting new candidates', () => {
+    const renderer = new TrackingRenderer();
+    const candidateChanges: CandidatesChange[] = [];
+    const strikethroughChanges: CandidatesStrikethrough[] = [];
+    vi.spyOn(renderer, 'renderPendingCandidates').mockImplementation((change: CandidatesChange) => {
+      candidateChanges.push(change);
+    });
+    vi.spyOn(renderer, 'renderPendingStrikethrough').mockImplementation((change: CandidatesStrikethrough) => {
+      strikethroughChanges.push(change);
+    });
+    const puzzle = createTestPuzzle({ cages: SIZE_4_CAGES, hasOperators: true, puzzleSize: 4, renderer });
+    puzzle.getCell('A1').setCandidates([1, 2, 3, 4]);
+
+    puzzle.enter('A1:12');
+    puzzle.commit();
+
+    const a1Candidates = candidateChanges.filter((c) => c.cell.ref === 'A1');
+    expect(a1Candidates).toHaveLength(1);
+    expect(a1Candidates[0]?.values).toEqual([1, 2, 3, 4]);
+
+    const a1Strikethrough = strikethroughChanges.filter((c) => c.cell.ref === 'A1');
+    expect(a1Strikethrough).toHaveLength(1);
+    expect(a1Strikethrough[0]?.values).toContain(3);
+    expect(a1Strikethrough[0]?.values).toContain(4);
+
+    expect(puzzle.getCell('A1').getCandidates()).toEqual([1, 2]);
+  });
+
+  it('no dropped strikethrough on fresh cell', () => {
+    const renderer = new TrackingRenderer();
+    const strikethroughChanges: CandidatesStrikethrough[] = [];
+    vi.spyOn(renderer, 'renderPendingStrikethrough').mockImplementation((change: CandidatesStrikethrough) => {
+      strikethroughChanges.push(change);
+    });
+    const puzzle = createTestPuzzle({ cages: SIZE_2_CAGES, hasOperators: true, puzzleSize: 2, renderer });
+
+    puzzle.enter('A1:12');
+    puzzle.commit();
+
+    const a1Strikethrough = strikethroughChanges.filter((c) => c.cell.ref === 'A1');
+    expect(a1Strikethrough).toHaveLength(0);
+  });
+
   it('restoreCellStates is callable with puzzle cells', () => {
     const renderer = new TrackingRenderer();
     const spy = vi.spyOn(renderer, 'restoreCellStates');
