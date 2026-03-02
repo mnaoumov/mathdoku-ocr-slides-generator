@@ -1,4 +1,8 @@
 declare module 'reveal.js' {
+  interface RevealIndices {
+    h: number;
+  }
+
   interface RevealOptions {
     controls?: boolean;
     hash?: boolean;
@@ -16,7 +20,7 @@ declare module 'reveal.js' {
   class Reveal {
     public constructor(options?: RevealOptions);
     public getCurrentSlide(): Element | null;
-    public getIndices(): { h: number };
+    public getIndices(): RevealIndices;
     public getTotalSlides(): number;
     public initialize(): Promise<void>;
     public on(event: string, callback: (event: unknown) => void): void;

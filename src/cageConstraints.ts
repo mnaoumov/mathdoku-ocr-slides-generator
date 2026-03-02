@@ -18,6 +18,11 @@ export interface CageConstraintContext {
   readonly puzzleSize: number;
 }
 
+export interface CageConstraintResult {
+  readonly candidateGroups: ChangeGroup[];
+  readonly valueSetters: CellValueSetter[];
+}
+
 export interface CageTupleParams {
   readonly cells: readonly Cell[];
   readonly operator: Operator;
@@ -27,7 +32,7 @@ export interface CageTupleParams {
 
 export function applyCageConstraint(
   ctx: CageConstraintContext
-): { candidateGroups: ChangeGroup[]; valueSetters: CellValueSetter[] } {
+): CageConstraintResult {
   const { cage, puzzleSize } = ctx;
 
   const tuples = collectCageTuples(cage.value, ctx);

@@ -61,6 +61,12 @@ export enum HouseType {
 
 export type CageRaw = z.infer<typeof cageRawSchema>;
 
+export interface CellSnapshot {
+  getCandidates(): number[];
+  readonly ref: string;
+  readonly value: null | number;
+}
+
 export interface CellValueSetter {
   readonly cell: Cell;
   readonly value: number;
@@ -99,6 +105,7 @@ export interface PuzzleRenderer {
   renderPendingClearance(change: CellClearance): void;
   renderPendingStrikethrough(change: CandidatesStrikethrough): void;
   renderPendingValue(change: ValueChange): void;
+  restoreCellStates(cells: readonly CellSnapshot[]): void;
   setNoteText(text: string): void;
   readonly slideCount: number;
 }

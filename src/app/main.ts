@@ -263,6 +263,9 @@ function handleUndo(): void {
     title: puzzleJson.title ?? ''
   });
 
+  // Sync renderer's visual state with the restored puzzle state
+  currentRenderer.restoreCellStates(currentPuzzle.cells);
+
   editPanel.init(currentPuzzle, currentRenderer, { onActionComplete });
   editPanel.updateCellOverlays();
   loadSlideNotesTextarea();

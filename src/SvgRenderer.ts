@@ -7,6 +7,7 @@ import type { ValueChange } from './cellChanges/ValueChange.ts';
 import type { LayoutProfile } from './layoutProfiles.ts';
 import type {
   CageRaw,
+  CellSnapshot,
   PuzzleRenderer
 } from './Puzzle.ts';
 
@@ -257,6 +258,18 @@ export class SvgRenderer implements PuzzleRenderer {
       value: String(change.value),
       valueColor: GREEN
     });
+  }
+
+  public restoreCellStates(cells: readonly CellSnapshot[]): void {
+    for (const cell of cells) {
+      this.cellStates.set(cell.ref, {
+        candidates: cell.value === null ? cell.getCandidates() : [],
+        candidatesColor: CANDIDATES_DARK_RED,
+        strikethroughDigits: new Set(),
+        value: cell.value === null ? '' : String(cell.value),
+        valueColor: VALUE_GRAY
+      });
+    }
   }
 
   public setNoteText(text: string): void {
