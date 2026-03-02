@@ -1,19 +1,19 @@
 import { z } from 'zod';
 
 import type { CellChange } from './cellChanges/CellChange.ts';
-import type { CellOperation } from './parsers.ts';
 import type { Strategy } from './strategies/Strategy.ts';
 
 import { CandidatesChange } from './cellChanges/CandidatesChange.ts';
 import { CandidatesStrikethrough } from './cellChanges/CandidatesStrikethrough.ts';
-import { CellClearance } from './cellChanges/CellClearance.ts';
 import { ValueChange } from './cellChanges/ValueChange.ts';
-import { evaluateTuple } from './combinatorics.ts';
 import {
   getCellRef,
-  parseCellRef,
-  parseOperation
+  parseCellRef
 } from './parsers.ts';
+import {
+  buildCommand,
+  type SolutionCommand
+} from './solutionCommand.ts';
 import { buildNote } from './strategies/Strategy.ts';
 import { ensureNonNullable } from './typeGuards.ts';
 
@@ -102,12 +102,13 @@ export interface PuzzleRenderer {
   ensureLastSlide(): boolean;
   renderCommittedChanges(puzzleSize: number): void;
   renderPendingCandidates(change: CandidatesChange): void;
-  renderPendingClearance(change: CellClearance): void;
   renderPendingStrikethrough(change: CandidatesStrikethrough): void;
   renderPendingValue(change: ValueChange): void;
   restoreCellStates(cells: readonly CellSnapshot[]): void;
+  setCommand(command: SolutionCommand): void;
   setNoteText(text: string): void;
   readonly slideCount: number;
+  readonly slides: readonly { readonly command: SolutionCommand; readonly notes: string }[];
 }
 
 export type PuzzleState = z.infer<typeof puzzleStateSchema>;
@@ -117,11 +118,6 @@ export interface StepResult {
   readonly message?: string;
   readonly skipped: readonly string[];
   readonly slideNumber: number;
-}
-
-interface EnterCommand {
-  readonly cells: readonly Cell[];
-  readonly operation: CellOperation;
 }
 
 const CHAR_CODE_A = 65;
@@ -397,14 +393,6 @@ export class Puzzle {
     }
   }
 
-  public enter(command: string): void {
-    if (!this.renderer.ensureLastSlide()) {
-      return;
-    }
-    const changes = this.buildEnterChanges(command);
-    this.applyChanges(changes);
-  }
-
   public getCage(id: number): Cage {
     return ensureNonNullable(this.cages[id - 1]);
   }
@@ -438,8 +426,10 @@ export class Puzzle {
       for (const strategy of this.strategies) {
         const result = strategy.tryApply(this);
         if (result) {
+          const changes = result.changeGroups.flatMap((g) => g.changes);
           this.renderer.setNoteText(buildNote(strategy.name, result.details));
-          this.applyChanges(result.changeGroups.flatMap((g) => g.changes));
+          this.renderer.setCommand(buildCommand(changes));
+          this.applyChanges(changes);
           this.commit();
           applied = true;
           canApply = true;
@@ -455,9 +445,11 @@ export class Puzzle {
     for (const strategy of strategies) {
       const result = strategy.tryApply(this);
       if (result) {
+        const changes = result.changeGroups.flatMap((g) => g.changes);
         const message = buildNote(strategy.name, result.details);
         this.renderer.setNoteText(message);
-        this.applyChanges(result.changeGroups.flatMap((g) => g.changes));
+        this.renderer.setCommand(buildCommand(changes));
+        this.applyChanges(changes);
         this.commit();
         return { applied: true, message, skipped, slideNumber: this.renderer.slideCount };
       }
@@ -502,190 +494,6 @@ export class Puzzle {
       }
     }
     return augmented;
-  }
-
-  private buildEnterChanges(input: string): CellChange[] {
-    const commands = this.parseInput(input);
-    for (const cmd of commands) {
-      this.validateEnterCommand(cmd);
-    }
-    const changes: CellChange[] = [];
-    for (const cmd of commands) {
-      for (const cell of cmd.cells) {
-        switch (cmd.operation.type) {
-          case 'candidates':
-            changes.push(new CandidatesChange(cell, cmd.operation.values));
-            break;
-          case 'clear':
-            changes.push(new CellClearance(cell));
-            break;
-          case 'strikethrough':
-            changes.push(new CandidatesStrikethrough(cell, cmd.operation.values));
-            break;
-          case 'value':
-            changes.push(new ValueChange(cell, cmd.operation.value));
-            break;
-          default: {
-            const exhaustive: never = cmd.operation;
-            throw new Error(`Unknown operation type: ${String(exhaustive)}`);
-          }
-        }
-      }
-      if (cmd.operation.type === 'value') {
-        const cell = ensureNonNullable(cmd.cells[0]);
-        for (const peer of cell.row.cells) {
-          if (peer !== cell) {
-            changes.push(new CandidatesStrikethrough(peer, [cmd.operation.value]));
-          }
-        }
-        for (const peer of cell.column.cells) {
-          if (peer !== cell) {
-            changes.push(new CandidatesStrikethrough(peer, [cmd.operation.value]));
-          }
-        }
-      }
-    }
-    return changes;
-  }
-
-  private parseCageExclusion(anchorRef: string, exclusionPart: string): Cell[] {
-    const anchor = this.getCell(anchorRef);
-    const cageCells = [...anchor.cage.cells];
-    const trimmed = exclusionPart.trim();
-    const exclusionRefs = trimmed.startsWith('(') && trimmed.endsWith(')')
-      ? trimmed.substring(1, trimmed.length - 1).trim().split(/\s+/)
-      : [trimmed];
-    const excludedCells = new Set(exclusionRefs.map((ref) => this.getCell(ref)));
-    return cageCells.filter((cell) => !excludedCells.has(cell));
-  }
-
-  private parseCellPart(cellPart: string): Cell[] {
-    let inner = cellPart;
-    if (inner.startsWith('(') && inner.endsWith(')')) {
-      inner = inner.substring(1, inner.length - 1);
-    }
-    const trimmed = inner.trim();
-
-    const rowMatch = /^Row\s+(?<id>\d+)$/i.exec(trimmed);
-    if (rowMatch) {
-      return [...this.getRow(parseInt(ensureNonNullable(ensureNonNullable(rowMatch.groups)['id']), 10)).cells];
-    }
-
-    const columnMatch = /^Column\s+(?<col>[A-Za-z])$/i.exec(trimmed);
-    if (columnMatch) {
-      const colId = ensureNonNullable(ensureNonNullable(columnMatch.groups)['col']).toUpperCase().charCodeAt(0) - CHAR_CODE_A + 1;
-      return [...this.getColumn(colId).cells];
-    }
-
-    const rangeMatch = /^(?<start>[A-Za-z]\d+)\.\.(?<end>[A-Za-z]\d+)$/.exec(trimmed);
-    if (rangeMatch) {
-      const groups = ensureNonNullable(rangeMatch.groups);
-      return this.parseCellRange(ensureNonNullable(groups['start']), ensureNonNullable(groups['end']));
-    }
-
-    const cageExclMatch = /^@(?<anchor>[A-Za-z]\d+)-(?<exclusion>.+)$/.exec(trimmed);
-    if (cageExclMatch) {
-      const groups = ensureNonNullable(cageExclMatch.groups);
-      return this.parseCageExclusion(ensureNonNullable(groups['anchor']), ensureNonNullable(groups['exclusion']));
-    }
-
-    const cells: Cell[] = [];
-    for (const token of trimmed.split(/\s+/)) {
-      if (token.startsWith('@')) {
-        const anchor = this.getCell(token.substring(1));
-        for (const cell of anchor.cage.cells) {
-          cells.push(cell);
-        }
-      } else {
-        cells.push(this.getCell(token));
-      }
-    }
-    return cells;
-  }
-
-  private parseCellRange(startRef: string, endRef: string): Cell[] {
-    const start = parseCellRef(startRef);
-    const end = parseCellRef(endRef);
-    const minRow = Math.min(start.rowId, end.rowId);
-    const maxRow = Math.max(start.rowId, end.rowId);
-    const minCol = Math.min(start.columnId, end.columnId);
-    const maxCol = Math.max(start.columnId, end.columnId);
-    const cells: Cell[] = [];
-    for (let rowId = minRow; rowId <= maxRow; rowId++) {
-      for (let columnId = minCol; columnId <= maxCol; columnId++) {
-        cells.push(this.getCell(rowId, columnId));
-      }
-    }
-    return cells;
-  }
-
-  private parseInput(input: string): EnterCommand[] {
-    const trimmed = input.trim();
-    if (!trimmed) {
-      throw new Error('No commands specified');
-    }
-    const pattern = /(?:\([^)]*(?:\([^)]*\)[^)]*)*\)|@[A-Za-z]\d+|[A-Za-z]\d+):[^\s]+/g;
-    const matches = trimmed.match(pattern);
-    if (!matches || matches.length === 0) {
-      throw new Error('Invalid format. Expected: A1:=1, (Row 3):-12, (Column A):34, (A1..D4):-3, (@D4-A1):234');
-    }
-    const commands: EnterCommand[] = [];
-    for (const match of matches) {
-      const colonIdx = match.startsWith('(')
-        ? match.indexOf(':', match.indexOf(')'))
-        : match.indexOf(':');
-      const cellPart = match.substring(0, colonIdx);
-      const opPart = match.substring(colonIdx + 1);
-      const cells = this.parseCellPart(cellPart);
-      const operation = parseOperation(opPart, cells.length);
-      commands.push({ cells, operation });
-    }
-    return commands;
-  }
-
-  private validateCageAfterValue(cell: Cell, value: number): void {
-    const cage = cell.cage;
-    // Only validate when all cells in the cage would be solved
-    const allSolved = cage.cells.every((c) => c === cell ? true : c.isSolved);
-    if (!allSolved) {
-      return;
-    }
-    const tuple = cage.cells.map((c) => c === cell ? value : ensureNonNullable(c.value));
-    if (this.hasOperators && cage.operator !== Operator.Unknown) {
-      if (evaluateTuple(tuple, cage.operator) !== cage.value) {
-        throw new Error(`${cell.ref} = ${String(value)} makes cage @${cage.topLeft.ref} invalid`);
-      }
-    } else {
-      const validForAny = [Operator.Divide, Operator.Minus, Operator.Plus, Operator.Times].some((op) => evaluateTuple(tuple, op) === cage.value);
-      if (!validForAny) {
-        throw new Error(`${cell.ref} = ${String(value)} makes cage @${cage.topLeft.ref} invalid`);
-      }
-    }
-  }
-
-  private validateEnterCommand(cmd: EnterCommand): void {
-    if (cmd.operation.type === 'value') {
-      const value = cmd.operation.value;
-      if (value > this.puzzleSize) {
-        throw new Error(`Value ${String(value)} exceeds puzzle size ${String(this.puzzleSize)}`);
-      }
-      const cell = ensureNonNullable(cmd.cells[0]);
-      for (const peer of cell.peers) {
-        if (peer.value === value) {
-          throw new Error(`${cell.ref} = ${String(value)} conflicts with ${peer.ref} which is already ${String(value)}`);
-        }
-      }
-      this.validateCageAfterValue(cell, value);
-      return;
-    }
-
-    if (cmd.operation.type === 'candidates' || cmd.operation.type === 'strikethrough') {
-      for (const v of cmd.operation.values) {
-        if (v > this.puzzleSize) {
-          throw new Error(`Value ${String(v)} exceeds puzzle size ${String(this.puzzleSize)}`);
-        }
-      }
-    }
   }
 
   private validatePostCommit(): void {
@@ -736,8 +544,10 @@ export function initPuzzleSlides(options: InitPuzzleSlidesParams): Puzzle {
   for (const strategy of options.initialStrategies) {
     const result = strategy.tryApply(puzzle);
     if (result) {
+      const changes = result.changeGroups.flatMap((g) => g.changes);
       options.renderer.setNoteText(buildNote(strategy.name, result.details));
-      puzzle.applyChanges(result.changeGroups.flatMap((g) => g.changes));
+      options.renderer.setCommand(buildCommand(changes));
+      puzzle.applyChanges(changes);
       puzzle.commit();
     }
   }

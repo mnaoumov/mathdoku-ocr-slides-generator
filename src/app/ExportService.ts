@@ -10,7 +10,7 @@ const REVEAL_CDN = 'https://cdn.jsdelivr.net/npm/reveal.js@5';
 const REVEAL_DIST = `${REVEAL_CDN}/dist`;
 // Avoid literal </script> inside template literal (would prematurely close the outer script)
 const CLOSE_SCRIPT = ['<', '/script>'].join('');
-const MUSIC_BASE64_PATH = '/music.b64';
+const MUSIC_URL = 'https://github.com/mnaoumov/mathdoku-ocr-slides-generator/raw/refs/heads/master/assets/music.mp3';
 const SVG_CLOSE_TAG = '</svg>';
 
 export interface ExportParams {
@@ -20,7 +20,19 @@ export interface ExportParams {
   readonly title: string;
 }
 
-export async function exportPresentation(options: ExportParams): Promise<void> {
+export function exportPresentation(options: ExportParams): void {
+  const html = generateHtml(options);
+
+  const blob = new Blob([html], { type: 'text/html' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${options.title}.html`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+export function generateHtml(options: ExportParams): string {
   const { manualNotes, slides, solveNotesRect, title } = options;
   const slidesHtml = slides.map((slide, index) => {
     let svg = slide.svg;
@@ -32,9 +44,7 @@ export async function exportPresentation(options: ExportParams): Promise<void> {
     return `<section>${svg}</section>`;
   }).join('\n');
 
-  const musicBase64 = await fetchMusicBase64();
-
-  const html = `<!DOCTYPE html>
+  return `<!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="utf-8"/>
@@ -66,37 +76,20 @@ Reveal.initialize({
   transition: 'none',
   width: 960
 }).then(function() {
-${
-    musicBase64
-      ? `  var bin = atob("${musicBase64}");
-  var bytes = new Uint8Array(bin.length);
-  for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  var audio = new Audio(URL.createObjectURL(new Blob([bytes], { type: 'audio/mpeg' })));
+  var audio = new Audio("${MUSIC_URL}");
   audio.loop = true;
-  audio.addEventListener('canplaythrough', function() {
-    function tryPlay() {
-      audio.play().then(function() {
-        document.removeEventListener('click', tryPlay);
-        document.removeEventListener('keydown', tryPlay);
-      }).catch(function() {});
-    }
-    document.addEventListener('click', tryPlay);
-    document.addEventListener('keydown', tryPlay);
-  });`
-      : ''
+  function tryPlay() {
+    audio.play().then(function() {
+      document.removeEventListener('click', tryPlay);
+      document.removeEventListener('keydown', tryPlay);
+    }).catch(function() {});
   }
+  document.addEventListener('click', tryPlay);
+  document.addEventListener('keydown', tryPlay);
 });
 ${CLOSE_SCRIPT}
 </body>
 </html>`;
-
-  const blob = new Blob([html], { type: 'text/html' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `${title}.html`;
-  a.click();
-  URL.revokeObjectURL(url);
 }
 
 function escapeHtml(text: string): string {
@@ -105,16 +98,4 @@ function escapeHtml(text: string): string {
     .replace(/</g, '&lt;')
     .replace(/>/g, '&gt;')
     .replace(/"/g, '&quot;');
-}
-
-async function fetchMusicBase64(): Promise<string> {
-  try {
-    const response = await fetch(MUSIC_BASE64_PATH);
-    if (!response.ok) {
-      return '';
-    }
-    return (await response.text()).trim();
-  } catch {
-    return '';
-  }
 }

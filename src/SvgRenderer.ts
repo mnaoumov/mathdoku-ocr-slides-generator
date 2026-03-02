@@ -2,7 +2,6 @@ import { z } from 'zod';
 
 import type { CandidatesChange } from './cellChanges/CandidatesChange.ts';
 import type { CandidatesStrikethrough } from './cellChanges/CandidatesStrikethrough.ts';
-import type { CellClearance } from './cellChanges/CellClearance.ts';
 import type { ValueChange } from './cellChanges/ValueChange.ts';
 import type { LayoutProfile } from './layoutProfiles.ts';
 import type {
@@ -10,6 +9,7 @@ import type {
   CellSnapshot,
   PuzzleRenderer
 } from './Puzzle.ts';
+import type { SolutionCommand } from './solutionCommand.ts';
 
 import { GridBoundaries } from './combinatorics.ts';
 import {
@@ -53,7 +53,12 @@ import { ensureNonNullable } from './typeGuards.ts';
 const CANDIDATES_BOTTOM_PADDING_PT = 3;
 const SOLVE_NOTES_PADDING_PT = 6;
 
+import { solutionCommandSchema } from './solutionCommand.ts';
+
+const EMPTY_COMMAND: SolutionCommand = {};
+
 export const slideSnapshotSchema = z.object({
+  command: solutionCommandSchema.default({}),
   notes: z.string(),
   svg: z.string()
 });
@@ -96,6 +101,7 @@ export class SvgRenderer implements PuzzleRenderer {
 
   private cageLabelsSvg = '';
   private cellStates = new Map<string, CellVisualState>();
+  private commandData: SolutionCommand = EMPTY_COMMAND;
   private ctx: GridContext | null = null;
   private gridSvg = '';
   private noteText = '';
@@ -156,7 +162,7 @@ export class SvgRenderer implements PuzzleRenderer {
   public pushInitialSlide(): void {
     const ctx = ensureNonNullable(this.ctx);
     const svg = this.buildSlideSvg(ctx, this.cellStates);
-    this.slides.push({ notes: '', svg });
+    this.slides.push({ command: EMPTY_COMMAND, notes: '', svg });
   }
 
   public renderCommittedChanges(_puzzleSize: number): void {
@@ -164,7 +170,7 @@ export class SvgRenderer implements PuzzleRenderer {
 
     // Build pending SVG (green overlays from current cellStates)
     const pendingSvg = this.buildSlideSvg(ctx, this.cellStates);
-    this.slides.push({ notes: this.noteText, svg: pendingSvg });
+    this.slides.push({ command: this.commandData, notes: this.noteText, svg: pendingSvg });
 
     // Now apply pending changes to snapshot to get committed state
     // The current cellStates already have the pending visual state;
@@ -209,9 +215,10 @@ export class SvgRenderer implements PuzzleRenderer {
 
     // Build committed SVG
     const committedSvg = this.buildSlideSvg(ctx, this.cellStates);
-    this.slides.push({ notes: '', svg: committedSvg });
+    this.slides.push({ command: EMPTY_COMMAND, notes: '', svg: committedSvg });
 
     this.noteText = '';
+    this.commandData = EMPTY_COMMAND;
     this.snapshot = new Map();
   }
 
@@ -221,16 +228,6 @@ export class SvgRenderer implements PuzzleRenderer {
       ...state,
       candidates: [...change.values],
       candidatesColor: GREEN,
-      strikethroughDigits: new Set(),
-      value: '',
-      valueColor: VALUE_GRAY
-    });
-  }
-
-  public renderPendingClearance(change: CellClearance): void {
-    this.cellStates.set(change.cell.ref, {
-      candidates: [],
-      candidatesColor: CANDIDATES_DARK_RED,
       strikethroughDigits: new Set(),
       value: '',
       valueColor: VALUE_GRAY
@@ -271,6 +268,10 @@ export class SvgRenderer implements PuzzleRenderer {
         valueColor: VALUE_GRAY
       });
     }
+  }
+
+  public setCommand(command: SolutionCommand): void {
+    this.commandData = command;
   }
 
   public setNoteText(text: string): void {

@@ -1,19 +1,26 @@
 import yaml from 'js-yaml';
 import { z } from 'zod';
 
-import type {
-  CageRaw,
-  PuzzleJson
-} from '../Puzzle.ts';
+import type { PuzzleJson } from '../Puzzle.ts';
+
 import 'reveal.js/dist/reveal.css';
 import 'reveal.js/dist/theme/white.css';
 
 import {
   initPuzzleSlides,
-  Operator,
   parsePuzzleJson,
   Puzzle
 } from '../Puzzle.ts';
+import {
+  buildPuzzleJson,
+  type YamlSpec
+} from '../puzzleYamlParser.ts';
+import {
+  buildSolutionYaml,
+  parseSolutionYaml,
+  puzzleJsonFromSolution,
+  replaySolution
+} from '../SolutionYaml.ts';
 import {
   createInitialStrategies,
   createStrategies
@@ -37,22 +44,6 @@ import {
   type SavedPuzzleState,
   saveState
 } from './StorageService.ts';
-
-interface YamlCage {
-  cells?: unknown[];
-  op?: string;
-  operator?: string;
-  value?: number;
-}
-
-interface YamlSpec {
-  cages?: unknown;
-  difficulty?: string;
-  hasOperators?: boolean;
-  meta?: string;
-  size?: number;
-  title?: string;
-}
 
 const SOLVE_NOTES_OVERLAY_CLASS = 'solve-notes-overlay';
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -117,61 +108,6 @@ function autoSave(): void {
     slides: currentRenderer.slides,
     state
   });
-}
-
-const OPERATOR_MAP: Record<string, Operator> = {
-  '-': Operator.Minus,
-  '*': Operator.Times,
-  '/': Operator.Divide,
-  '+': Operator.Plus,
-  'x': Operator.Times
-};
-
-function buildPuzzleJson(spec: YamlSpec, name: string): PuzzleJson {
-  if (spec.size === undefined) {
-    throw new Error('size is required in YAML spec');
-  }
-  const n = spec.size;
-  const difficulty = spec.difficulty;
-  const hasOperators = spec.hasOperators ?? true;
-
-  let title = (spec.title ?? '').trim();
-  if (!title) {
-    title = `#Mathdoku ${name}`;
-  }
-
-  let meta = (spec.meta ?? '').trim();
-  if (!meta) {
-    const parts = [`Size ${String(n)}x${String(n)}`];
-    if (difficulty !== undefined) {
-      parts.push(`Difficulty ${difficulty}`);
-    }
-    parts.push(hasOperators ? 'With operators' : 'Without operators');
-    meta = parts.join(' \u2022 ');
-  }
-
-  const cagesIn = spec.cages;
-  if (!Array.isArray(cagesIn) || cagesIn.length === 0) {
-    throw new Error('cages must be a non-empty list');
-  }
-
-  const cages: CageRaw[] = [];
-  for (const [idx, item] of (cagesIn as YamlCage[]).entries()) {
-    const cellsRaw = item.cells;
-    if (!Array.isArray(cellsRaw) || cellsRaw.length === 0) {
-      throw new Error(`cages[${String(idx)}].cells must be a non-empty list`);
-    }
-    const cells = cellsRaw.map((c) => String(c).trim().toUpperCase());
-
-    if (item.value === undefined) {
-      throw new Error(`cages[${String(idx)}].value is required`);
-    }
-
-    const operator = parseOperator(item.op ?? item.operator);
-    cages.push({ cells, operator, value: item.value });
-  }
-
-  return { cages, hasOperators, meta, puzzleSize: n, title };
 }
 
 function extractCellState(puzzle: Puzzle): SavedPuzzleState {
@@ -243,7 +179,7 @@ function handleUndo(): void {
   autoSave();
 }
 
-function onActionComplete(slidesBefore: number, command: string): void {
+function onActionComplete(slidesBefore: number): void {
   if (!currentRenderer || !currentPuzzle) {
     return;
   }
@@ -254,16 +190,10 @@ function onActionComplete(slidesBefore: number, command: string): void {
     slideCount: slidesBefore
   });
 
-  // Add new slides and populate manualNotes:
-  // First new pending slide gets command + TODO placeholder;
-  // All other slides use their slide.notes (strategy descriptions on pending, empty on committed).
+  // Add new slides and populate manualNotes from slide notes
   const newSlides = currentRenderer.slides.slice(slidesBefore);
-  for (let i = 0; i < newSlides.length; i++) {
-    if (i === 0) {
-      manualNotes.push(`${command}\nTODO`);
-    } else {
-      manualNotes.push(newSlides[i]?.notes ?? '');
-    }
+  for (const slide of newSlides) {
+    manualNotes.push(slide.notes);
   }
   addSlides(newSlides);
   addSolveNotesOverlays(slidesBefore);
@@ -272,13 +202,6 @@ function onActionComplete(slidesBefore: number, command: string): void {
   editPanel.updateCellOverlays();
 
   autoSave();
-}
-
-function parseOperator(op: string | undefined): Operator {
-  if (op === undefined) {
-    return Operator.Unknown;
-  }
-  return OPERATOR_MAP[op.trim()] ?? Operator.Unknown;
 }
 
 let currentPuzzleJson: null | PuzzleJson = null;
@@ -415,10 +338,15 @@ function setupToolbar(): void {
           slides: currentRenderer.slides,
           solveNotesRect: currentSolveNotesRect,
           title: currentTitle
-        }).catch((e: unknown) => {
-          console.error('Export failed', e);
         });
       }
+    });
+  }
+
+  const saveYamlBtn = document.getElementById('btn-save-yaml');
+  if (saveYamlBtn) {
+    saveYamlBtn.addEventListener('click', () => {
+      handleSaveYaml();
     });
   }
 
@@ -452,19 +380,78 @@ function showAppContainer(): void {
   }
 }
 
-const puzzleApiResponseSchema = z.object({
+const solutionApiResponseSchema = z.object({
   content: z.string(),
   name: z.string()
 });
 
-async function tryLoadFromServer(): Promise<boolean> {
+function handleSaveYaml(): void {
+  if (!currentRenderer || !currentPuzzleJson) {
+    return;
+  }
+  const yamlContent = buildSolutionYaml({
+    hasOperators: currentPuzzleJson.hasOperators !== false,
+    manualNotes,
+    puzzleJson: currentPuzzleJson,
+    slides: currentRenderer.slides
+  });
+  const blob = new Blob([yamlContent], { type: 'application/x-yaml' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${currentTitle}.solution.yaml`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function initFromSolution(content: string): void {
+  const solution = parseSolutionYaml(content);
+  const puzzleJson = puzzleJsonFromSolution(solution);
+
+  currentPuzzleJson = puzzleJson;
+  currentTitle = puzzleJson.title ?? 'Mathdoku';
+  historyStack = [];
+  currentSolveNotesRect = getSolveNotesRect(puzzleJson.puzzleSize);
+
+  const renderer = new SvgRenderer();
+  renderer.initGrid(
+    puzzleJson.puzzleSize,
+    puzzleJson.cages,
+    puzzleJson.hasOperators ?? true,
+    puzzleJson.title ?? '',
+    puzzleJson.meta ?? ''
+  );
+  currentRenderer = renderer;
+  renderer.pushInitialSlide();
+
+  const result = replaySolution({
+    puzzleJson,
+    renderer,
+    steps: solution.steps
+  });
+
+  manualNotes = result.manualNotes;
+  currentPuzzle = result.puzzle;
+
+  initializeReveal(renderer.slides).then(() => {
+    editPanel.init(result.puzzle, renderer, { onActionComplete });
+    editPanel.updateCellOverlays();
+    addSolveNotesOverlays(0);
+    autoSave();
+  }).catch((e: unknown) => {
+    console.error('Failed to initialize Reveal.js', e);
+  });
+}
+
+async function tryLoadSolutionFromServer(): Promise<boolean> {
   try {
-    const response = await fetch('/api/puzzle');
+    const response = await fetch('/api/solution');
     if (!response.ok) {
       return false;
     }
-    const data = puzzleApiResponseSchema.parse(await response.json());
-    loadYaml(data.content, data.name);
+    const data = solutionApiResponseSchema.parse(await response.json());
+    showAppContainer();
+    initFromSolution(data.content);
     return true;
   } catch {
     return false;
@@ -487,8 +474,8 @@ document.addEventListener('DOMContentLoaded', () => {
   setupKeyboardShortcuts();
   setupToolbar();
 
-  // If started via `npm run startSolver`, puzzle is served at /api/puzzle
-  tryLoadFromServer().then((loaded) => {
+  // If started via `npm run edit-solution`, solution is served at /api/solution
+  tryLoadSolutionFromServer().then((loaded) => {
     if (!loaded) {
       setupFileInput();
     }

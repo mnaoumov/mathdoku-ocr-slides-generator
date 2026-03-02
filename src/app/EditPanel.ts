@@ -1,5 +1,11 @@
+import type { CellChange } from '../cellChanges/CellChange.ts';
 import type { Puzzle } from '../Puzzle.ts';
 import type { SvgRenderer } from '../SvgRenderer.ts';
+
+import { CandidatesChange } from '../cellChanges/CandidatesChange.ts';
+import { CandidatesStrikethrough } from '../cellChanges/CandidatesStrikethrough.ts';
+import { ValueChange } from '../cellChanges/ValueChange.ts';
+import { buildCommand } from '../solutionCommand.ts';
 
 enum OperationMode {
   Candidates = 'candidates',
@@ -8,7 +14,7 @@ enum OperationMode {
 }
 
 interface EditPanelCallbacks {
-  onActionComplete(slidesBefore: number, command: string): void;
+  onActionComplete(slidesBefore: number): void;
 }
 
 interface QueuedGroup {
@@ -81,7 +87,48 @@ export class EditPanel {
     this.updateQueueDisplay();
   }
 
-  private buildCommandString(): string {
+  private buildChanges(): CellChange[] {
+    const puzzle = this.puzzle;
+    if (!puzzle) {
+      return [];
+    }
+    const changes: CellChange[] = [];
+    for (const group of this.queuedGroups) {
+      const cells = group.cells.map((ref) => puzzle.getCell(ref));
+      switch (group.mode) {
+        case OperationMode.Candidates:
+          for (const cell of cells) {
+            changes.push(new CandidatesChange(cell, group.values));
+          }
+          break;
+        case OperationMode.Strikethrough:
+          for (const cell of cells) {
+            changes.push(new CandidatesStrikethrough(cell, group.values));
+          }
+          break;
+        case OperationMode.Value: {
+          const value = group.values[0];
+          if (value === undefined) {
+            break;
+          }
+          for (const cell of cells) {
+            changes.push(new ValueChange(cell, value));
+            for (const peer of cell.peers) {
+              changes.push(new CandidatesStrikethrough(peer, [value]));
+            }
+          }
+          break;
+        }
+        default: {
+          const exhaustive: never = group.mode;
+          throw new Error(`Unknown mode: ${String(exhaustive)}`);
+        }
+      }
+    }
+    return changes;
+  }
+
+  private buildDescription(): string {
     const parts: string[] = [];
     for (const group of this.queuedGroups) {
       const cellPart = group.cells.length === 1
@@ -299,10 +346,13 @@ export class EditPanel {
     }
 
     const slidesBefore = this.renderer.slideCount;
-    const cmd = this.buildCommandString();
+    const changes = this.buildChanges();
+    const description = this.buildDescription();
 
     try {
-      this.puzzle.enter(cmd);
+      this.renderer.setNoteText(`${description}\nTODO`);
+      this.renderer.setCommand(buildCommand(changes));
+      this.puzzle.applyChanges(changes);
       this.puzzle.commit();
       this.puzzle.tryApplyAutomatedStrategies();
     } catch (e: unknown) {
@@ -314,7 +364,7 @@ export class EditPanel {
 
     this.queuedGroups = [];
     this.close();
-    this.callbacks.onActionComplete(slidesBefore, cmd);
+    this.callbacks.onActionComplete(slidesBefore);
   }
 
   private toggleCell(ref: string): void {

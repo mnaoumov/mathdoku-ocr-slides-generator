@@ -1,12 +1,12 @@
 import type { CandidatesChange } from '../src/cellChanges/CandidatesChange.ts';
 import type { CandidatesStrikethrough } from '../src/cellChanges/CandidatesStrikethrough.ts';
-import type { CellClearance } from '../src/cellChanges/CellClearance.ts';
 import type { ValueChange } from '../src/cellChanges/ValueChange.ts';
 import type {
   CageRaw,
   CellSnapshot,
   PuzzleRenderer
 } from '../src/Puzzle.ts';
+import type { SolutionCommand } from '../src/solutionCommand.ts';
 import type { Strategy } from '../src/strategies/Strategy.ts';
 
 import {
@@ -25,11 +25,21 @@ export interface CreateTestPuzzleParams {
 }
 
 export class TrackingRenderer implements PuzzleRenderer {
+  public readonly commandsBySlide: SolutionCommand[] = [];
   public isLastSlide = true;
   public readonly notesBySlide: string[] = [];
   public get slideCount(): number {
     return this.currentSlide + 1;
   }
+
+  public get slides(): readonly { readonly command: SolutionCommand; readonly notes: string }[] {
+    return this.notesBySlide.map((notes, i) => ({
+      command: this.commandsBySlide[i] ?? {},
+      notes
+    }));
+  }
+
+  private commandData: SolutionCommand = {};
 
   private currentSlide = 0;
 
@@ -45,14 +55,11 @@ export class TrackingRenderer implements PuzzleRenderer {
 
   public renderCommittedChanges(_puzzleSize: number): void {
     this.noteText = '';
+    this.commandData = {};
     this.currentSlide++;
   }
 
   public renderPendingCandidates(_change: CandidatesChange): void {
-    // No-op
-  }
-
-  public renderPendingClearance(_change: CellClearance): void {
     // No-op
   }
 
@@ -68,6 +75,10 @@ export class TrackingRenderer implements PuzzleRenderer {
     // No-op
   }
 
+  public setCommand(command: SolutionCommand): void {
+    this.commandData = command;
+  }
+
   public setNoteText(text: string): void {
     this.noteText = text;
   }
@@ -75,6 +86,9 @@ export class TrackingRenderer implements PuzzleRenderer {
   private recordNote(): void {
     if (this.noteText) {
       this.notesBySlide[this.currentSlide] = this.noteText;
+    }
+    if (Object.keys(this.commandData).length > 0) {
+      this.commandsBySlide[this.currentSlide] = this.commandData;
     }
     this.currentSlide++;
   }

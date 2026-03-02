@@ -7,7 +7,6 @@ import {
 
 import { CandidatesChange } from '../src/cellChanges/CandidatesChange.ts';
 import { CandidatesStrikethrough } from '../src/cellChanges/CandidatesStrikethrough.ts';
-import { CellClearance } from '../src/cellChanges/CellClearance.ts';
 import { ValueChange } from '../src/cellChanges/ValueChange.ts';
 import {
   initPuzzleSlides,
@@ -74,137 +73,30 @@ describe('Puzzle', () => {
     });
   });
 
-  describe('enter', () => {
-    it('creates value change for =N', () => {
+  describe('applyChanges + commit', () => {
+    it('sets value via ValueChange', () => {
       const puzzle = createTestPuzzle({ cages: SIZE_4_CAGES, hasOperators: true, puzzleSize: 4 });
-      // Set up candidates directly
       for (const cell of puzzle.cells) {
         cell.setCandidates([1, 2, 3, 4]);
       }
-      puzzle.enter('A1:=3');
+      puzzle.applyChanges([new ValueChange(puzzle.getCell('A1'), 3)]);
       puzzle.commit();
       expect(puzzle.getCell('A1').value).toBe(3);
     });
 
-    it('creates candidates change for digits', () => {
+    it('sets candidates via CandidatesChange', () => {
       const puzzle = createTestPuzzle({ cages: SIZE_4_CAGES, hasOperators: true, puzzleSize: 4 });
-      puzzle.enter('A1:123');
+      puzzle.applyChanges([new CandidatesChange(puzzle.getCell('A1'), [1, 2, 3])]);
       puzzle.commit();
       expect(puzzle.getCell('A1').getCandidates()).toEqual([1, 2, 3]);
     });
 
-    it('creates strikethrough change for -digits', () => {
+    it('eliminates candidates via CandidatesStrikethrough', () => {
       const puzzle = createTestPuzzle({ cages: SIZE_4_CAGES, hasOperators: true, puzzleSize: 4 });
-      // Set up candidates first
-      puzzle.enter('A1:1234');
-      puzzle.commit();
-      puzzle.enter('A1:-34');
+      puzzle.getCell('A1').setCandidates([1, 2, 3, 4]);
+      puzzle.applyChanges([new CandidatesStrikethrough(puzzle.getCell('A1'), [3, 4])]);
       puzzle.commit();
       expect(puzzle.getCell('A1').getCandidates()).toEqual([1, 2]);
-    });
-
-    it('creates clearance change for x', () => {
-      const puzzle = createTestPuzzle({ cages: SIZE_4_CAGES, hasOperators: true, puzzleSize: 4 });
-      puzzle.enter('A1:=3');
-      puzzle.commit();
-      puzzle.enter('A1:x');
-      puzzle.commit();
-      expect(puzzle.getCell('A1').value).toBeNull();
-      expect(puzzle.getCell('A1').getCandidates()).toEqual([]);
-    });
-
-    it('throws for empty input', () => {
-      const puzzle = createTestPuzzle({ cages: SIZE_4_CAGES, hasOperators: true, puzzleSize: 4 });
-      expect(() => {
-        puzzle.enter('');
-      }).toThrow('No commands specified');
-    });
-
-    it('throws for invalid format', () => {
-      const puzzle = createTestPuzzle({ cages: SIZE_4_CAGES, hasOperators: true, puzzleSize: 4 });
-      expect(() => {
-        puzzle.enter('invalid');
-      }).toThrow('Invalid format');
-    });
-  });
-
-  describe('enter cell selection syntax', () => {
-    it('(Row N) targets all cells in that row', () => {
-      const puzzle = createTestPuzzle({ cages: SIZE_4_CAGES, hasOperators: true, puzzleSize: 4 });
-      puzzle.enter('(Row 1):1234');
-      puzzle.commit();
-      expect(puzzle.getCell('A1').getCandidates()).toEqual([1, 2, 3, 4]);
-      expect(puzzle.getCell('B1').getCandidates()).toEqual([1, 2, 3, 4]);
-      expect(puzzle.getCell('C1').getCandidates()).toEqual([1, 2, 3, 4]);
-      expect(puzzle.getCell('D1').getCandidates()).toEqual([1, 2, 3, 4]);
-      expect(puzzle.getCell('A2').getCandidates()).toEqual([]);
-    });
-
-    it('(Column X) targets all cells in that column', () => {
-      const puzzle = createTestPuzzle({ cages: SIZE_4_CAGES, hasOperators: true, puzzleSize: 4 });
-      puzzle.enter('(Column A):1234');
-      puzzle.commit();
-      expect(puzzle.getCell('A1').getCandidates()).toEqual([1, 2, 3, 4]);
-      expect(puzzle.getCell('A2').getCandidates()).toEqual([1, 2, 3, 4]);
-      expect(puzzle.getCell('A3').getCandidates()).toEqual([1, 2, 3, 4]);
-      expect(puzzle.getCell('A4').getCandidates()).toEqual([1, 2, 3, 4]);
-      expect(puzzle.getCell('B1').getCandidates()).toEqual([]);
-    });
-
-    it('(A1..B2) targets rectangular range', () => {
-      const puzzle = createTestPuzzle({ cages: SIZE_4_CAGES, hasOperators: true, puzzleSize: 4 });
-      puzzle.enter('(A1..B2):12');
-      puzzle.commit();
-      expect(puzzle.getCell('A1').getCandidates()).toEqual([1, 2]);
-      expect(puzzle.getCell('B1').getCandidates()).toEqual([1, 2]);
-      expect(puzzle.getCell('A2').getCandidates()).toEqual([1, 2]);
-      expect(puzzle.getCell('B2').getCandidates()).toEqual([1, 2]);
-      expect(puzzle.getCell('C1').getCandidates()).toEqual([]);
-    });
-
-    it('(D4..A3) range works in reverse order', () => {
-      const puzzle = createTestPuzzle({ cages: SIZE_4_CAGES, hasOperators: true, puzzleSize: 4 });
-      puzzle.enter('(D4..A3):12');
-      puzzle.commit();
-      expect(puzzle.getCell('A3').getCandidates()).toEqual([1, 2]);
-      expect(puzzle.getCell('D4').getCandidates()).toEqual([1, 2]);
-      expect(puzzle.getCell('B3').getCandidates()).toEqual([1, 2]);
-      expect(puzzle.getCell('C4').getCandidates()).toEqual([1, 2]);
-    });
-
-    it('(@A3-B3) targets cage minus one cell', () => {
-      const puzzle = createTestPuzzle({ cages: SIZE_4_CAGES, hasOperators: true, puzzleSize: 4 });
-      // Cage containing A3 = [A3, B3]
-      puzzle.enter('(@A3-B3):12');
-      puzzle.commit();
-      expect(puzzle.getCell('A3').getCandidates()).toEqual([1, 2]);
-      expect(puzzle.getCell('B3').getCandidates()).toEqual([]);
-    });
-
-    it('(@A1-(A2)) targets cage minus multiple cells', () => {
-      const puzzle = createTestPuzzle({ cages: SIZE_4_CAGES, hasOperators: true, puzzleSize: 4 });
-      // Cage containing A1 = [A1, A2], excluding A2 → only A1
-      puzzle.enter('(@A1-(A2)):12');
-      puzzle.commit();
-      expect(puzzle.getCell('A1').getCandidates()).toEqual([1, 2]);
-      expect(puzzle.getCell('A2').getCandidates()).toEqual([]);
-    });
-
-    it('Row and Column are case-insensitive', () => {
-      const puzzle = createTestPuzzle({ cages: SIZE_4_CAGES, hasOperators: true, puzzleSize: 4 });
-      puzzle.enter('(row 1):12 (COLUMN D):34');
-      puzzle.commit();
-      expect(puzzle.getCell('A1').getCandidates()).toEqual([1, 2]);
-      // D1 is in both row 1 and column D; second command overwrites
-      expect(puzzle.getCell('D1').getCandidates()).toEqual([3, 4]);
-      expect(puzzle.getCell('D3').getCandidates()).toEqual([3, 4]);
-    });
-
-    it('throws for invalid row number', () => {
-      const puzzle = createTestPuzzle({ cages: SIZE_4_CAGES, hasOperators: true, puzzleSize: 4 });
-      expect(() => {
-        puzzle.enter('(Row 5):12');
-      }).toThrow();
     });
   });
 });
@@ -317,6 +209,20 @@ describe('tryApplyOneStrategyStep', () => {
     const strategyNotes = renderer.notesBySlide.filter((n) => n.startsWith('Single candidate'));
     expect(strategyNotes).toHaveLength(1);
   });
+
+  it('records command for the step', () => {
+    const renderer = new TrackingRenderer();
+    const puzzle = createTestPuzzle({ cages: SIZE_2_CAGES, hasOperators: true, puzzleSize: 2, renderer });
+    puzzle.getCell('A1').setCandidates([1]);
+    puzzle.getCell('B1').setCandidates([1, 2]);
+    puzzle.getCell('A2').setCandidates([1, 2]);
+    puzzle.getCell('B2').setCandidates([1, 2]);
+
+    puzzle.tryApplyOneStrategyStep(createStrategies(2));
+    const commands = renderer.commandsBySlide.filter((c) => Object.keys(c).length > 0);
+    expect(commands).toHaveLength(1);
+    expect(commands[0]).toHaveProperty('A1', '=1');
+  });
 });
 
 describe('tryApplyAutomatedStrategies', () => {
@@ -366,15 +272,6 @@ describe('ensureLastSlide guard', () => {
     { cells: ['A2', 'B2'], operator: Operator.Plus, value: 3 }
   ];
 
-  it('enter does nothing when not on last slide', () => {
-    const renderer = new TrackingRenderer();
-    renderer.isLastSlide = false;
-    const puzzle = createTestPuzzle({ cages: SIZE_2_CAGES, hasOperators: true, puzzleSize: 2, renderer });
-    puzzle.enter('A1:12');
-    expect(puzzle.getCell('A1').getCandidates()).toEqual([]);
-    expect(renderer.slideCount).toBe(1);
-  });
-
   it('tryApplyAutomatedStrategies returns false when not on last slide', () => {
     const renderer = new TrackingRenderer();
     renderer.isLastSlide = false;
@@ -395,23 +292,6 @@ describe('slide notes tracking', () => {
     { cells: ['A2', 'B2'], operator: Operator.Plus, value: 3 }
   ];
 
-  it('records note text on pending slide only for enter+commit', () => {
-    const renderer = new TrackingRenderer();
-    const puzzle = createTestPuzzle({ cages: SIZE_2_CAGES, hasOperators: true, puzzleSize: 2, renderer });
-    // Set up candidates directly
-    for (const cell of puzzle.cells) {
-      cell.setCandidates([1, 2]);
-    }
-
-    renderer.setNoteText('A1:=1');
-    puzzle.enter('A1:=1');
-    puzzle.commit();
-
-    // Only the pending slide should have the note (committed gets empty)
-    const notedSlides = renderer.notesBySlide.filter((n) => n === 'A1:=1');
-    expect(notedSlides).toHaveLength(1);
-  });
-
   it('records strategy-specific note for each strategy step', () => {
     const renderer = new TrackingRenderer();
     const puzzle = createTestPuzzle({ cages: SIZE_2_CAGES, hasOperators: true, puzzleSize: 2, renderer, strategies: createStrategies(2) });
@@ -425,24 +305,6 @@ describe('slide notes tracking', () => {
     // 2 strategy steps, each producing notes only on the pending slide
     const strategyNotes = renderer.notesBySlide.filter((n) => n.startsWith('Single candidate:'));
     expect(strategyNotes).toHaveLength(2);
-  });
-
-  it('records different notes for different operations', () => {
-    const renderer = new TrackingRenderer();
-    const puzzle = createTestPuzzle({ cages: SIZE_2_CAGES, hasOperators: true, puzzleSize: 2, renderer });
-
-    renderer.setNoteText('A1:12');
-    puzzle.enter('A1:12');
-    puzzle.commit();
-
-    renderer.setNoteText('B1:12');
-    puzzle.enter('B1:12');
-    puzzle.commit();
-
-    const batch1Notes = renderer.notesBySlide.filter((n) => n === 'A1:12');
-    const batch2Notes = renderer.notesBySlide.filter((n) => n === 'B1:12');
-    expect(batch1Notes).toHaveLength(1);
-    expect(batch2Notes).toHaveLength(1);
   });
 });
 
@@ -495,55 +357,20 @@ describe('initPuzzleSlides notes', () => {
     expect(renderer.notesBySlide[0]).toBe('Filling all candidates');
     expect(renderer.notesBySlide[1]).toBeUndefined();
   });
-});
 
-describe('enter validation', () => {
-  it('throws when value exceeds puzzle size', () => {
-    const puzzle = createTestPuzzle({ cages: SIZE_4_CAGES, hasOperators: true, puzzleSize: 4 });
-    expect(() => {
-      puzzle.enter('A1:=5');
-    }).toThrow('Value 5 exceeds puzzle size 4');
-  });
+  it('records command for FillAllCandidates strategy', () => {
+    const renderer = new TrackingRenderer();
+    initPuzzleSlides({
+      cages: SIZE_4_CAGES,
+      hasOperators: true,
+      initialStrategies: createInitialStrategies(),
+      puzzleSize: 4,
+      renderer,
+      strategies: createStrategies(4)
+    });
 
-  it('throws when candidate exceeds puzzle size', () => {
-    const puzzle = createTestPuzzle({ cages: SIZE_4_CAGES, hasOperators: true, puzzleSize: 4 });
-    expect(() => {
-      puzzle.enter('A1:125');
-    }).toThrow('Value 5 exceeds puzzle size 4');
-  });
-
-  it('throws when strikethrough value exceeds puzzle size', () => {
-    const puzzle = createTestPuzzle({ cages: SIZE_4_CAGES, hasOperators: true, puzzleSize: 4 });
-    expect(() => {
-      puzzle.enter('A1:-56');
-    }).toThrow('Value 5 exceeds puzzle size 4');
-  });
-
-  it('throws when value conflicts with peer', () => {
-    const puzzle = createTestPuzzle({ cages: SIZE_4_CAGES, hasOperators: true, puzzleSize: 4 });
-    puzzle.getCell('B1').setValue(3);
-    expect(() => {
-      puzzle.enter('A1:=3');
-    }).toThrow('A1 = 3 conflicts with B1 which is already 3');
-  });
-
-  it('throws when value makes completed cage invalid', () => {
-    // Cage {A1, A2} +3, cells in same column so no peer conflict with different values
-    const puzzle = createTestPuzzle({ cages: SIZE_4_CAGES, hasOperators: true, puzzleSize: 4 });
-    puzzle.getCell('A1').setValue(1);
-    // A1=1, setting A2=4 → sum=5≠3, cage invalid
-    expect(() => {
-      puzzle.enter('A2:=4');
-    }).toThrow('makes cage @A1 invalid');
-  });
-
-  it('allows valid value that completes cage correctly', () => {
-    const puzzle = createTestPuzzle({ cages: SIZE_4_CAGES, hasOperators: true, puzzleSize: 4 });
-    puzzle.getCell('A1').setValue(1);
-    // A1=1, setting A2=2 → sum=3 ✓
-    expect(() => {
-      puzzle.enter('A2:=2');
-    }).not.toThrow();
+    const commands = renderer.commandsBySlide.filter((c) => Object.keys(c).length > 0);
+    expect(commands.length).toBeGreaterThanOrEqual(1);
   });
 });
 
@@ -553,7 +380,7 @@ describe('renderer calls', () => {
     { cells: ['A2', 'B2'], operator: Operator.Plus, value: 3 }
   ];
 
-  it('enter + commit with value calls renderPendingValue with ValueChange', () => {
+  it('applyChanges + commit with value calls renderPendingValue with ValueChange', () => {
     const renderer = new TrackingRenderer();
     const captured: ValueChange[] = [];
     vi.spyOn(renderer, 'renderPendingValue').mockImplementation((change: ValueChange) => {
@@ -564,7 +391,7 @@ describe('renderer calls', () => {
       cell.setCandidates([1, 2]);
     }
 
-    puzzle.enter('A1:=1');
+    puzzle.applyChanges([new ValueChange(puzzle.getCell('A1'), 1)]);
     puzzle.commit();
 
     expect(captured).toHaveLength(1);
@@ -573,7 +400,7 @@ describe('renderer calls', () => {
     expect(captured[0]?.value).toBe(1);
   });
 
-  it('enter + commit with candidates calls renderPendingCandidates with CandidatesChange', () => {
+  it('applyChanges + commit with candidates calls renderPendingCandidates with CandidatesChange', () => {
     const renderer = new TrackingRenderer();
     const captured: CandidatesChange[] = [];
     vi.spyOn(renderer, 'renderPendingCandidates').mockImplementation((change: CandidatesChange) => {
@@ -581,7 +408,7 @@ describe('renderer calls', () => {
     });
     const puzzle = createTestPuzzle({ cages: SIZE_2_CAGES, hasOperators: true, puzzleSize: 2, renderer });
 
-    puzzle.enter('A1:12');
+    puzzle.applyChanges([new CandidatesChange(puzzle.getCell('A1'), [1, 2])]);
     puzzle.commit();
 
     expect(captured).toHaveLength(1);
@@ -590,7 +417,7 @@ describe('renderer calls', () => {
     expect(captured[0]?.values).toEqual([1, 2]);
   });
 
-  it('enter + commit with strikethrough calls renderPendingStrikethrough', () => {
+  it('applyChanges + commit with strikethrough calls renderPendingStrikethrough', () => {
     const renderer = new TrackingRenderer();
     const captured: CandidatesStrikethrough[] = [];
     vi.spyOn(renderer, 'renderPendingStrikethrough').mockImplementation((change: CandidatesStrikethrough) => {
@@ -599,30 +426,13 @@ describe('renderer calls', () => {
     const puzzle = createTestPuzzle({ cages: SIZE_2_CAGES, hasOperators: true, puzzleSize: 2, renderer });
     puzzle.getCell('A1').setCandidates([1, 2]);
 
-    puzzle.enter('A1:-2');
+    puzzle.applyChanges([new CandidatesStrikethrough(puzzle.getCell('A1'), [2])]);
     puzzle.commit();
 
     const a1Changes = captured.filter((change) => change.cell.ref === 'A1');
     expect(a1Changes).toHaveLength(1);
     expect(a1Changes[0]).toBeInstanceOf(CandidatesStrikethrough);
     expect(a1Changes[0]?.values).toEqual([2]);
-  });
-
-  it('enter + commit with clear calls renderPendingClearance', () => {
-    const renderer = new TrackingRenderer();
-    const captured: CellClearance[] = [];
-    vi.spyOn(renderer, 'renderPendingClearance').mockImplementation((change: CellClearance) => {
-      captured.push(change);
-    });
-    const puzzle = createTestPuzzle({ cages: SIZE_2_CAGES, hasOperators: true, puzzleSize: 2, renderer });
-    puzzle.getCell('A1').setCandidates([1, 2]);
-
-    puzzle.enter('A1:x');
-    puzzle.commit();
-
-    expect(captured).toHaveLength(1);
-    expect(captured[0]).toBeInstanceOf(CellClearance);
-    expect(captured[0]?.cell.ref).toBe('A1');
   });
 
   it('beginPendingRender is called before renderPending*, renderCommittedChanges after commit', () => {
@@ -639,7 +449,7 @@ describe('renderer calls', () => {
     });
     const puzzle = createTestPuzzle({ cages: SIZE_2_CAGES, hasOperators: true, puzzleSize: 2, renderer });
 
-    puzzle.enter('A1:12');
+    puzzle.applyChanges([new CandidatesChange(puzzle.getCell('A1'), [1, 2])]);
     puzzle.commit();
 
     expect(callOrder).toEqual([
@@ -649,7 +459,7 @@ describe('renderer calls', () => {
     ]);
   });
 
-  it('multi-cell command calls renderPendingCandidates for each cell', () => {
+  it('multi-cell applyChanges calls renderPendingCandidates for each cell', () => {
     const renderer = new TrackingRenderer();
     const captured: CandidatesChange[] = [];
     vi.spyOn(renderer, 'renderPendingCandidates').mockImplementation((change: CandidatesChange) => {
@@ -657,7 +467,10 @@ describe('renderer calls', () => {
     });
     const puzzle = createTestPuzzle({ cages: SIZE_2_CAGES, hasOperators: true, puzzleSize: 2, renderer });
 
-    puzzle.enter('A1:12 B1:12');
+    puzzle.applyChanges([
+      new CandidatesChange(puzzle.getCell('A1'), [1, 2]),
+      new CandidatesChange(puzzle.getCell('B1'), [1, 2])
+    ]);
     puzzle.commit();
 
     expect(captured).toHaveLength(2);
@@ -683,17 +496,6 @@ describe('renderer calls', () => {
     expect(commitSpy).toHaveBeenCalled();
   });
 
-  it('enter returns early when ensureLastSlide is false — beginPendingRender not called', () => {
-    const renderer = new TrackingRenderer();
-    renderer.isLastSlide = false;
-    const beginSpy = vi.spyOn(renderer, 'beginPendingRender');
-    const puzzle = createTestPuzzle({ cages: SIZE_2_CAGES, hasOperators: true, puzzleSize: 2, renderer });
-
-    puzzle.enter('A1:12');
-
-    expect(beginSpy).not.toHaveBeenCalled();
-  });
-
   it('dropped candidates rendered as strikethrough when setting new candidates', () => {
     const renderer = new TrackingRenderer();
     const candidateChanges: CandidatesChange[] = [];
@@ -707,7 +509,7 @@ describe('renderer calls', () => {
     const puzzle = createTestPuzzle({ cages: SIZE_4_CAGES, hasOperators: true, puzzleSize: 4, renderer });
     puzzle.getCell('A1').setCandidates([1, 2, 3, 4]);
 
-    puzzle.enter('A1:12');
+    puzzle.applyChanges([new CandidatesChange(puzzle.getCell('A1'), [1, 2])]);
     puzzle.commit();
 
     const a1Candidates = candidateChanges.filter((c) => c.cell.ref === 'A1');
@@ -730,7 +532,7 @@ describe('renderer calls', () => {
     });
     const puzzle = createTestPuzzle({ cages: SIZE_2_CAGES, hasOperators: true, puzzleSize: 2, renderer });
 
-    puzzle.enter('A1:12');
+    puzzle.applyChanges([new CandidatesChange(puzzle.getCell('A1'), [1, 2])]);
     puzzle.commit();
 
     const a1Strikethrough = strikethroughChanges.filter((c) => c.cell.ref === 'A1');
@@ -767,17 +569,6 @@ describe('CellChange subclasses', () => {
     const change = new CandidatesStrikethrough(cell, [2, 4]);
     change.applyToModel();
     expect(cell.getCandidates()).toEqual([1, 3]);
-  });
-
-  it('CellClearance clears value and candidates', () => {
-    const puzzle = createTestPuzzle({ cages: SIZE_4_CAGES, hasOperators: true, puzzleSize: 4 });
-    const cell = puzzle.getCell('A1');
-    cell.setValue(5);
-    cell.setCandidates([1, 2]);
-    const change = new CellClearance(cell);
-    change.applyToModel();
-    expect(cell.value).toBeNull();
-    expect(cell.getCandidates()).toEqual([]);
   });
 
   it('ValueChange sets value and clears candidates', () => {

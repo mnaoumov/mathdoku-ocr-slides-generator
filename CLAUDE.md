@@ -2,43 +2,54 @@
 
 ## Project Goal
 
-Interactive browser-based Mathdoku puzzle solver with Reveal.js presentations. The workflow is: OCR a puzzle screenshot -> YAML spec -> open in browser app -> solve step-by-step -> export static HTML presentation for recording/archival.
+Interactive browser-based Mathdoku puzzle solver with Reveal.js presentations. The workflow is: OCR a puzzle screenshot -> YAML spec -> create solution YAML -> solve interactively -> export static HTML presentation for recording/archival.
 
 ## Architecture
 
 ### Pipeline
 
 1. **OCR** (`ocr/ocr_mathdoku.py`): Screenshot -> YAML puzzle spec
-2. **Browser App** (`src/app/`): Load YAML -> interactive solving with Reveal.js slides -> export static HTML
+2. **Create Solution** (`npm run init-solution`): Puzzle YAML -> solution YAML (runs init + auto strategies)
+3. **Browser App** (`npm run edit-solution`): Load solution YAML -> interactive solving with Reveal.js slides -> save updated solution YAML
+4. **Export HTML** (`npm run export-html`): Solution YAML -> self-contained Reveal.js HTML (Node.js, no browser)
 
-### Two-Phase Workflow
+### Three-Phase Workflow
 
-**Phase 1 — Interactive Solving (browser app):**
-1. Open `npm run startSolver -- path/to/puzzle.yaml` (preferred: auto-loads puzzle) or `npm run dev` (manual file picker)
-2. Load puzzle YAML (auto-loaded from server or via file picker)
-3. Init: creates grid + runs initial strategies (synchronous, instant)
-4. Solve interactively: click cells to edit, automated strategies run after each action, undo mistakes
-5. Auto-saved to localStorage continuously
+**Phase 1 — Create Solution:**
+1. `npm run init-solution -- path/to/puzzle.yaml` — runs init strategies + automated strategies in Node.js
+2. Writes `<name>.solution.yaml` with puzzle spec + all strategy steps
 
-**Phase 2 — Export (static presentation):**
-1. Click "Export" when done
-2. Produces a self-contained Reveal.js HTML file (CSS/JS from CDN) with all SVG slides + visible solve notes
-3. Open the exported file to present, record video, archive
+**Phase 2 — Interactive Solving (browser app):**
+1. `npm run edit-solution -- path/to/solution.yaml` — opens browser app with solution pre-loaded
+2. Or `npm run dev` — manual file picker (for puzzle YAML files)
+3. Replays recorded steps, then user continues solving: click cells to edit, automated strategies run after each action, undo mistakes
+4. "Save YAML" button downloads updated solution YAML; auto-saved to localStorage continuously
+
+**Phase 3 — Export (static presentation):**
+1. `npm run export-html -- path/to/solution.yaml` — generates HTML from solution YAML (Node.js, no browser)
+2. Or click "Export" in the browser app
+3. Produces a self-contained Reveal.js HTML file (CSS/JS from CDN, music from GitHub URL) with all SVG slides + visible solve notes
+4. Open the exported file to present, record video, archive
 
 ### Key Files
 
-- `src/Puzzle.ts` - Business logic: Puzzle class, PuzzleRenderer/Strategy interfaces, `initPuzzleSlides()`, types (zero rendering dependencies)
+- `src/Puzzle.ts` - Business logic: Puzzle class, PuzzleRenderer/Strategy interfaces, `initPuzzleSlides()`, `applyChanges()`, types (zero rendering dependencies)
 - `src/layoutProfiles.ts` - Layout profile interfaces, `LAYOUT_PROFILES` constant (sizes 4-9), color/dimension constants, utility functions (`clamp`, `fitFontSize`, `formatCandidates`, `getLayoutProfile`, `in2pt`, `opSymbol`, `pt`)
 - `src/SvgRenderer.ts` - SVG-based PuzzleRenderer: maintains per-cell visual state, builds SVG slides with pending/committed workflow, clickable cell overlays
 - `src/strategies/` - Strategy implementations: solving strategies (SingleCandidate, HiddenSingle, LastCellInCage, NakedSet, HiddenSet, cage operation strategies (TooSmallForSum, TooBigForSum, DoesNotDivideProduct, TooSmallForProduct, TooBigForProduct), DeterminedByCage, NoCageCombination, RequiredCageCandidate, InniesOuties, Fish, CageFish), init strategies (FillAllCandidates, SingleCellCage, UniqueCageMultiset)
 - `src/strategies/cageOperationBounds.ts` - Cage operator deduction and Latin square bounds: `canBeOperator`, `computeLatinSquareBound`, `deduceOperator`, `getEffectiveOperator` (cached deduction via `Cage.deducedOperator`), enums (`AggregateType`, `BoundType`), `Bounds` interface, `BINARY_CELL_COUNT`
 - `src/strategies/cageTupleAnalysis.ts` - Shared cage tuple enumeration functions (`getOperatorsForCage`, `adjustTargetForSolvedCells`, `collectValidTuples`, `enumerateValidTuples`) used by NoCageCombination, RequiredCageCandidate, and CageFish
-- `src/cellChanges/` - CellChange subclasses (CandidatesChange, CandidatesStrikethrough, CellClearance, ValueChange)
-- `src/app/main.ts` - Browser entry: YAML parsing, puzzle init, Reveal.js setup, keyboard shortcuts, undo, auto-save, server puzzle auto-load
-- `scripts/startSolver.ts` - CLI script: starts Vite dev server with puzzle YAML served at `/api/puzzle`
+- `src/cellChanges/` - CellChange subclasses (CandidatesChange, CandidatesStrikethrough, ValueChange)
+- `src/solutionCommand.ts` - SolutionCommand schema/type, `buildCommand()` (CellChange[] -> SolutionCommand object)
+- `src/SolutionYaml.ts` - Solution YAML build/parse/replay: `buildSolutionYaml()`, `parseSolutionYaml()`, `puzzleJsonFromSolution()`, `replaySolution()`, `resolveCommand()` (SolutionCommand -> CellChange[])
+- `src/puzzleYamlParser.ts` - Shared YAML parsing: `buildPuzzleJson()`, `parseOperator()`, `YamlSpec`, `YamlCage`
+- `src/app/main.ts` - Browser entry: solution YAML loading, puzzle init, Reveal.js setup, keyboard shortcuts, undo, auto-save, Save YAML button
+- `scripts/init-solution.ts` - CLI: puzzle YAML -> solution YAML (runs init + auto strategies in Node.js, stores all steps as command objects)
+- `scripts/edit-solution.ts` - CLI: starts Vite dev server with solution YAML served at `/api/solution`
+- `scripts/export-html.ts` - CLI: solution YAML -> self-contained Reveal.js HTML (Node.js, no browser)
 - `src/app/RevealApp.ts` - Reveal.js deck management: `initializeReveal()`, `addSlides()`, `removeAfter()`, `navigateToLast()`
-- `src/app/EditPanel.ts` - Click-to-select cell editing panel with operation queue
-- `src/app/ExportService.ts` - Export static HTML presentation (Reveal.js CDN, all SVG slides + notes)
+- `src/app/EditPanel.ts` - Click-to-select cell editing panel with operation queue; builds CellChange[] directly (no string parsing)
+- `src/app/ExportService.ts` - Export HTML: `generateHtml()` (pure function) + `exportPresentation()` (browser download). Music from GitHub URL.
 - `src/app/StorageService.ts` - localStorage auto-save/restore (keyed by puzzle title)
 - `src/app/index.html` - App HTML shell (file picker + Reveal.js container + toolbar)
 - `src/app/style.css` - App styles (edit panel, cell overlays, toolbar)
@@ -63,25 +74,26 @@ Implements `PuzzleRenderer` interface using SVG string generation. ViewBox `0 0 
 
 ### Solving Workflow
 
-The app follows the same MVC pattern as the original:
-- **Puzzle** (model+logic in `Puzzle.ts`): maintains cell values/candidates, parses Enter commands, runs strategies
+The app follows an MVC pattern:
+- **Puzzle** (model+logic in `Puzzle.ts`): maintains cell values/candidates, applies CellChange[] changes, runs strategies
 - **SvgRenderer** (view): implements `PuzzleRenderer` interface with SVG rendering
 - **Strategies** (one file each): implement `Strategy` interface, called by Puzzle's strategy loop
 
 Flow:
-1. **Edit** (via EditPanel): User clicks cells, chooses operation. Submit builds a command string, calls `puzzle.enter(cmd)` + `puzzle.commit()` + `puzzle.tryApplyAutomatedStrategies()`. Comments are optional (entered via solve notes panel after submit).
-   - `=N` sets value, `digits` adds candidates, `-digits` strikethroughs candidates, `x` clears cell
-   - Cell selection syntax (brackets optional for single cell/cage, required for groups):
-     - `D3:op` or `(D3):op` — single cell
-     - `@D3:op` or `(@D3):op` — whole cage containing D3
-     - `(A1 B2):op` — explicit cell list
-     - `(Row 3):op` — entire row (case-insensitive keyword)
-     - `(Column C):op` — entire column (case-insensitive keyword)
-     - `(A3..D4):op` — rectangular range (endpoints in any order)
-     - `(@A3-B3):op` — cage of A3 minus B3
-     - `(@A3-(B3 A4)):op` — cage of A3 minus multiple cells
-2. **Commit**: `renderCommittedChanges` builds pending SVG (green changes) then committed SVG (finalized) — both pushed as slides.
+1. **Edit** (via EditPanel): User clicks cells, chooses operation. Submit builds `CellChange[]` directly from `QueuedGroup[]` data, then calls `renderer.setNoteText()`, `renderer.setCommand(buildCommand(changes))`, `puzzle.applyChanges(changes)`, `puzzle.commit()`, `puzzle.tryApplyAutomatedStrategies()`. Comments are optional (entered via solve notes panel after submit).
+2. **Commit**: `renderCommittedChanges` builds pending SVG (green changes) then committed SVG (finalized) — both pushed as slides. Each pending slide stores a `SolutionCommand` object for deterministic replay.
 3. **Automated strategies** run automatically after init and after each manual edit via `tryApplyAutomatedStrategies()`. No explicit trigger needed.
+
+### PuzzleRenderer Interface
+
+Key methods:
+- `setNoteText(text)` — sets note text for the next pending slide
+- `setCommand(command)` — sets the SolutionCommand object for the next pending slide
+- `beginPendingRender(puzzleSize)` — starts pending render pass
+- `renderPendingValue/Candidates/Strikethrough(change)` — renders change in green
+- `renderCommittedChanges(puzzleSize)` — finalizes pending+committed slides
+- `slides` — readonly array of `{ command: SolutionCommand; notes: string }` objects
+- `slideCount` — current slide count
 
 ### Undo
 
@@ -92,11 +104,11 @@ History stack of `{slideCount, cellState}` snapshots. On undo: pop entry, remove
 Notes appear in the on-slide solve notes panel (right-side columns), not as speaker notes. They are auto-populated and editable via textarea overlays (`manualNotes[]`).
 
 - **Init**: auto-populated from `slide.notes` (strategy descriptions on pending slides, empty on committed)
-- **Manual actions**: first pending slide gets `command\nTODO` (raw command + placeholder); all other slides use `slide.notes`
+- **Manual actions**: EditPanel sets note text via `renderer.setNoteText(description)` before commit
 - **Automated strategies**: strategy descriptions appear on pending slides only
 - Each action produces 2 slides (pending + committed); only pending slides carry note text in the renderer
 
-Note text is set via `PuzzleRenderer.setNoteText()` from strategies (`Puzzle.tryApplyAutomatedStrategies()`, `initPuzzleSlides()`). `Puzzle.enter()` does not set note text — the app layer handles manual action notes. `renderCommittedChanges()` clears `noteText` after use, so committed slides always get empty notes.
+Note text is set via `PuzzleRenderer.setNoteText()` from strategies (`Puzzle.tryApplyAutomatedStrategies()`, `initPuzzleSlides()`) and from `EditPanel.submit()`. `renderCommittedChanges()` clears `noteText` and `commandData` after use, so committed slides always get empty notes and empty commands.
 
 ### localStorage Persistence (`StorageService.ts`)
 
@@ -124,7 +136,9 @@ Auto-saves after every action. Keyed by puzzle title with storage keys per puzzl
 
 ### Build
 
-- `npm run startSolver -- path/to/puzzle.yaml` — Start solver with pre-loaded puzzle (preferred workflow)
+- `npm run init-solution -- path/to/puzzle.yaml` — Create solution YAML (runs init + auto strategies in Node.js)
+- `npm run edit-solution -- path/to/solution.yaml` — Open browser app with pre-loaded solution (preferred workflow)
+- `npm run export-html -- path/to/solution.yaml` — Generate self-contained HTML from solution YAML (Node.js, no browser)
 - `npm run dev` — Vite dev server with hot reload and manual file picker (config: `vite.config.app.ts`, root: `src/app/`)
 - `npm run build` — Vite production build to `dist/` (via `scripts/build.ts`)
 - Entry point: `src/app/index.html` with `<script type="module" src="./main.ts">`
@@ -144,7 +158,9 @@ Cage operators use the `Operator` string enum (in `Puzzle.ts`): `Plus = '+'`, `M
 
 `Cage.deducedOperator` is a mutable cache field set by `getEffectiveOperator()` when operator deduction succeeds. Only non-Unknown results are cached (Unknown means "try again later"). All strategies use `getEffectiveOperator(cage, puzzleSize)` instead of calling `deduceOperator` directly.
 
-- Start solver: `npm run startSolver -- path/to/puzzle.yaml`
+- Create solution: `npm run init-solution -- path/to/puzzle.yaml`
+- Edit solution: `npm run edit-solution -- path/to/solution.yaml`
+- Export HTML: `npm run export-html -- path/to/solution.yaml`
 - Run dev server (file picker): `npm run dev`
 - Build for production: `npm run build`
 - Run OCR: `npm run ocrMathdoku screenshot.png`
@@ -153,12 +169,71 @@ Cage operators use the `Operator` string enum (in `Puzzle.ts`): `Plus = '+'`, `M
 - Color constants defined in `layoutProfiles.ts`
 - Font: "Segoe UI" for title, labels, values, notes; "Consolas" for candidates (per layout spec)
 
+## Solution YAML Format
+
+The solution YAML is the canonical save format, capturing the full puzzle solution (puzzle spec + all solving steps as deterministic command objects).
+
+```yaml
+puzzle:
+  size: 5
+  hasOperators: false
+  title: "#Mathdoku Blog19"
+  meta: "Size 5x5 • Difficulty 2 • Without operators"
+  cages:
+    - cells: [A1, B1, C1]
+      value: 40
+    - cells: [D1, D2, E2]
+      value: 5
+
+steps:
+  - command:
+      A1-E5: 12345
+    note: "Filling all candidates"
+  - command:
+      E1: "=5"
+    note: "SingleCellCage: E1=5"
+  - command:
+      A1: "=3"
+    note: "Only candidate left"
+```
+
+### Step fields
+
+Every step has two fields:
+- `command:` — a `SolutionCommand` object (`Record<string, number | string>`). Keys are cell selectors, values are operations. Replayed deterministically on load via `resolveCommand()`.
+- `note:` — human-readable explanation for the solve notes panel. Required (always present).
+
+### Command object format
+
+Keys = cell selectors, values = operations:
+- **Positive integer** → set candidates: `A1: 123` means {1,2,3}
+- **Negative integer** → strikethrough: `B2: -456` means eliminate {4,5,6}
+- **String "=N"** → set value: `D4: "=3"` means value 3
+
+Cell selector syntax (keys):
+- `A1` — single cell
+- `A1-E5` — rectangular range (all cells from A1 corner to E5 corner)
+- `@C3` — all cells in cage of C3
+- `(A1 B2 C3)` — explicit cell group
+
+`buildCommand(changes)` groups same-operation cells using the most compact selector: rectangle > group > single. Derived peer strikethroughs from value changes are filtered out (auto-added on replay).
+
+### Step-to-slide mapping
+
+Slide 0 = initial grid (no step). Step N (1-based) -> slides `2N-1` (pending) and `2N` (committed). All steps (init strategies, automated strategies, manual edits) are stored uniformly as command objects.
+
+### Key modules
+
+- `src/solutionCommand.ts` — `SolutionCommand` type (zod schema), `buildCommand()` converts CellChange[] to SolutionCommand.
+- `src/SolutionYaml.ts` — `buildSolutionYaml()` builds YAML from slides + manualNotes; `parseSolutionYaml()` validates with zod; `puzzleJsonFromSolution()` converts to `PuzzleJson`; `replaySolution()` replays all steps via `resolveCommand()` to reconstruct renderer slides + puzzle state; `resolveCommand()` converts SolutionCommand to CellChange[].
+- `src/puzzleYamlParser.ts` — shared `buildPuzzleJson()` + `parseOperator()` used by both browser app and CLI scripts.
+
 ## Testing
 
 - `npm test` runs vitest unit tests for Puzzle logic, strategies, parsers, combinatorics, cage constraints
 - `uv run pytest` runs OCR tests. Don't run them unless OCR code changed.
 - For rendering changes, test manually: run `npm run dev`, load a YAML fixture, verify in the browser.
-- `TrackingRenderer` (in `__tests__/puzzleTestHelper.ts`) is the test double for `PuzzleRenderer` — tracks `notesBySlide`, `slideCount`, and has a configurable `isLastSlide` flag for guard testing.
+- `TrackingRenderer` (in `__tests__/puzzleTestHelper.ts`) is the test double for `PuzzleRenderer` — tracks `notesBySlide`, `commandsBySlide`, `slideCount`, `slides`, and has a configurable `isLastSlide` flag for guard testing.
 - `createTestPuzzle()` accepts an optional `renderer` parameter to inject a `TrackingRenderer` the test holds a reference to (avoids `as TrackingRenderer` casts).
 
 ## Documentation
