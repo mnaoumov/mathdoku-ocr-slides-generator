@@ -1,5 +1,10 @@
+import type { CandidatesChange } from '../src/cellChanges/CandidatesChange.ts';
+import type { CandidatesStrikethrough } from '../src/cellChanges/CandidatesStrikethrough.ts';
+import type { CellClearance } from '../src/cellChanges/CellClearance.ts';
+import type { ValueChange } from '../src/cellChanges/ValueChange.ts';
 import type {
   CageRaw,
+  CellSnapshot,
   PuzzleRenderer
 } from '../src/Puzzle.ts';
 import type { Strategy } from '../src/strategies/Strategy.ts';
@@ -30,7 +35,7 @@ export class TrackingRenderer implements PuzzleRenderer {
 
   private noteText = '';
 
-  public beginPendingRender(): void {
+  public beginPendingRender(_puzzleSize: number): void {
     this.recordNote();
   }
 
@@ -38,23 +43,27 @@ export class TrackingRenderer implements PuzzleRenderer {
     return this.isLastSlide;
   }
 
-  public renderCommittedChanges(): void {
+  public renderCommittedChanges(_puzzleSize: number): void {
     this.recordNote();
   }
 
-  public renderPendingCandidates(): void {
+  public renderPendingCandidates(_change: CandidatesChange): void {
     // No-op
   }
 
-  public renderPendingClearance(): void {
+  public renderPendingClearance(_change: CellClearance): void {
     // No-op
   }
 
-  public renderPendingStrikethrough(): void {
+  public renderPendingStrikethrough(_change: CandidatesStrikethrough): void {
     // No-op
   }
 
-  public renderPendingValue(): void {
+  public renderPendingValue(_change: ValueChange): void {
+    // No-op
+  }
+
+  public restoreCellStates(_cells: readonly CellSnapshot[]): void {
     // No-op
   }
 

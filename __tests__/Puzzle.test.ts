@@ -1,7 +1,8 @@
 import {
   describe,
   expect,
-  it
+  it,
+  vi
 } from 'vitest';
 
 import { CandidatesChange } from '../src/cellChanges/CandidatesChange.ts';
@@ -565,6 +566,165 @@ describe('enter validation', () => {
     expect(() => {
       puzzle.enter('A2:=2');
     }).not.toThrow();
+  });
+});
+
+describe('renderer calls', () => {
+  const SIZE_2_CAGES = [
+    { cells: ['A1', 'B1'], operator: Operator.Plus, value: 3 },
+    { cells: ['A2', 'B2'], operator: Operator.Plus, value: 3 }
+  ];
+
+  it('enter + commit with value calls renderPendingValue with ValueChange', () => {
+    const renderer = new TrackingRenderer();
+    const captured: ValueChange[] = [];
+    vi.spyOn(renderer, 'renderPendingValue').mockImplementation((change: ValueChange) => {
+      captured.push(change);
+    });
+    const puzzle = createTestPuzzle({ cages: SIZE_2_CAGES, hasOperators: true, puzzleSize: 2, renderer });
+    for (const cell of puzzle.cells) {
+      cell.setCandidates([1, 2]);
+    }
+
+    puzzle.enter('A1:=1');
+    puzzle.commit();
+
+    expect(captured).toHaveLength(1);
+    expect(captured[0]).toBeInstanceOf(ValueChange);
+    expect(captured[0]?.cell.ref).toBe('A1');
+    expect(captured[0]?.value).toBe(1);
+  });
+
+  it('enter + commit with candidates calls renderPendingCandidates with CandidatesChange', () => {
+    const renderer = new TrackingRenderer();
+    const captured: CandidatesChange[] = [];
+    vi.spyOn(renderer, 'renderPendingCandidates').mockImplementation((change: CandidatesChange) => {
+      captured.push(change);
+    });
+    const puzzle = createTestPuzzle({ cages: SIZE_2_CAGES, hasOperators: true, puzzleSize: 2, renderer });
+
+    puzzle.enter('A1:12');
+    puzzle.commit();
+
+    expect(captured).toHaveLength(1);
+    expect(captured[0]).toBeInstanceOf(CandidatesChange);
+    expect(captured[0]?.cell.ref).toBe('A1');
+    expect(captured[0]?.values).toEqual([1, 2]);
+  });
+
+  it('enter + commit with strikethrough calls renderPendingStrikethrough', () => {
+    const renderer = new TrackingRenderer();
+    const captured: CandidatesStrikethrough[] = [];
+    vi.spyOn(renderer, 'renderPendingStrikethrough').mockImplementation((change: CandidatesStrikethrough) => {
+      captured.push(change);
+    });
+    const puzzle = createTestPuzzle({ cages: SIZE_2_CAGES, hasOperators: true, puzzleSize: 2, renderer });
+    puzzle.getCell('A1').setCandidates([1, 2]);
+
+    puzzle.enter('A1:-2');
+    puzzle.commit();
+
+    const a1Changes = captured.filter((change) => change.cell.ref === 'A1');
+    expect(a1Changes).toHaveLength(1);
+    expect(a1Changes[0]).toBeInstanceOf(CandidatesStrikethrough);
+    expect(a1Changes[0]?.values).toEqual([2]);
+  });
+
+  it('enter + commit with clear calls renderPendingClearance', () => {
+    const renderer = new TrackingRenderer();
+    const captured: CellClearance[] = [];
+    vi.spyOn(renderer, 'renderPendingClearance').mockImplementation((change: CellClearance) => {
+      captured.push(change);
+    });
+    const puzzle = createTestPuzzle({ cages: SIZE_2_CAGES, hasOperators: true, puzzleSize: 2, renderer });
+    puzzle.getCell('A1').setCandidates([1, 2]);
+
+    puzzle.enter('A1:x');
+    puzzle.commit();
+
+    expect(captured).toHaveLength(1);
+    expect(captured[0]).toBeInstanceOf(CellClearance);
+    expect(captured[0]?.cell.ref).toBe('A1');
+  });
+
+  it('beginPendingRender is called before renderPending*, renderCommittedChanges after commit', () => {
+    const renderer = new TrackingRenderer();
+    const callOrder: string[] = [];
+    vi.spyOn(renderer, 'beginPendingRender').mockImplementation(() => {
+      callOrder.push('beginPendingRender');
+    });
+    vi.spyOn(renderer, 'renderPendingCandidates').mockImplementation(() => {
+      callOrder.push('renderPendingCandidates');
+    });
+    vi.spyOn(renderer, 'renderCommittedChanges').mockImplementation(() => {
+      callOrder.push('renderCommittedChanges');
+    });
+    const puzzle = createTestPuzzle({ cages: SIZE_2_CAGES, hasOperators: true, puzzleSize: 2, renderer });
+
+    puzzle.enter('A1:12');
+    puzzle.commit();
+
+    expect(callOrder).toEqual([
+      'beginPendingRender',
+      'renderPendingCandidates',
+      'renderCommittedChanges'
+    ]);
+  });
+
+  it('multi-cell command calls renderPendingCandidates for each cell', () => {
+    const renderer = new TrackingRenderer();
+    const captured: CandidatesChange[] = [];
+    vi.spyOn(renderer, 'renderPendingCandidates').mockImplementation((change: CandidatesChange) => {
+      captured.push(change);
+    });
+    const puzzle = createTestPuzzle({ cages: SIZE_2_CAGES, hasOperators: true, puzzleSize: 2, renderer });
+
+    puzzle.enter('A1:12 B1:12');
+    puzzle.commit();
+
+    expect(captured).toHaveLength(2);
+    expect(captured[0]?.cell.ref).toBe('A1');
+    expect(captured[1]?.cell.ref).toBe('B1');
+  });
+
+  it('tryApplyOneStrategyStep calls beginPendingRender, renderPendingValue, renderCommittedChanges', () => {
+    const renderer = new TrackingRenderer();
+    const beginSpy = vi.spyOn(renderer, 'beginPendingRender');
+    const valueSpy = vi.spyOn(renderer, 'renderPendingValue');
+    const commitSpy = vi.spyOn(renderer, 'renderCommittedChanges');
+    const puzzle = createTestPuzzle({ cages: SIZE_2_CAGES, hasOperators: true, puzzleSize: 2, renderer });
+    puzzle.getCell('A1').setCandidates([1]);
+    puzzle.getCell('B1').setCandidates([1, 2]);
+    puzzle.getCell('A2').setCandidates([1, 2]);
+    puzzle.getCell('B2').setCandidates([1, 2]);
+
+    puzzle.tryApplyOneStrategyStep(createStrategies(2));
+
+    expect(beginSpy).toHaveBeenCalled();
+    expect(valueSpy).toHaveBeenCalled();
+    expect(commitSpy).toHaveBeenCalled();
+  });
+
+  it('enter returns early when ensureLastSlide is false — beginPendingRender not called', () => {
+    const renderer = new TrackingRenderer();
+    renderer.isLastSlide = false;
+    const beginSpy = vi.spyOn(renderer, 'beginPendingRender');
+    const puzzle = createTestPuzzle({ cages: SIZE_2_CAGES, hasOperators: true, puzzleSize: 2, renderer });
+
+    puzzle.enter('A1:12');
+
+    expect(beginSpy).not.toHaveBeenCalled();
+  });
+
+  it('restoreCellStates is callable with puzzle cells', () => {
+    const renderer = new TrackingRenderer();
+    const spy = vi.spyOn(renderer, 'restoreCellStates');
+    const puzzle = createTestPuzzle({ cages: SIZE_2_CAGES, hasOperators: true, puzzleSize: 2, renderer });
+
+    renderer.restoreCellStates(puzzle.cells);
+
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(spy).toHaveBeenCalledWith(puzzle.cells);
   });
 });
 
