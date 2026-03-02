@@ -159,6 +159,18 @@ export default defineConfig(
         {
           message: 'Do not use definite assignment assertions (!) on abstract fields.',
           selector: 'TSAbstractPropertyDefinition[definite=true]'
+        },
+        {
+          message: 'Do not use anonymous inline object types in function parameters. Define a named interface instead.',
+          selector: ':function > Identifier TSTypeLiteral'
+        },
+        {
+          message: 'Do not use anonymous inline object types in function return types. Define a named interface instead.',
+          selector: ':function > TSTypeAnnotation:last-child TSTypeLiteral'
+        },
+        {
+          message: 'Do not use anonymous inline object types in interface/method signatures. Define a named interface instead.',
+          selector: 'TSMethodSignature TSTypeLiteral'
         }
       ],
       'no-return-assign': 'error',
