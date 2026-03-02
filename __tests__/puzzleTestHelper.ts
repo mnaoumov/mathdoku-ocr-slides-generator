@@ -44,7 +44,8 @@ export class TrackingRenderer implements PuzzleRenderer {
   }
 
   public renderCommittedChanges(_puzzleSize: number): void {
-    this.recordNote();
+    this.noteText = '';
+    this.currentSlide++;
   }
 
   public renderPendingCandidates(_change: CandidatesChange): void {

@@ -220,16 +220,6 @@ html, body {
   border-bottom: none;
 }
 
-/* Comment input */
-.edit-comment {
-  width: 100%;
-  padding: 6px 8px;
-  border: 1px solid #ccc;
-  border-radius: 3px;
-  font-size: 13px;
-  box-sizing: border-box;
-}
-
 /* Action buttons */
 .edit-actions {
   display: flex;

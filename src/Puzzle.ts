@@ -397,14 +397,11 @@ export class Puzzle {
     }
   }
 
-  public enter(input: string): void {
+  public enter(command: string): void {
     if (!this.renderer.ensureLastSlide()) {
       return;
     }
-    this.renderer.setNoteText(input);
-    const commentIndex = input.indexOf('//');
-    const commandPart = commentIndex >= 0 ? input.substring(0, commentIndex) : input;
-    const changes = this.buildEnterChanges(commandPart);
+    const changes = this.buildEnterChanges(command);
     this.applyChanges(changes);
   }
 

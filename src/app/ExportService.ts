@@ -15,14 +15,13 @@ const SVG_CLOSE_TAG = '</svg>';
 
 export interface ExportParams {
   readonly manualNotes: readonly string[];
-  readonly slideNotes: readonly string[];
   readonly slides: readonly SlideSnapshot[];
   readonly solveNotesRect: SolveNotesRect;
   readonly title: string;
 }
 
 export async function exportPresentation(options: ExportParams): Promise<void> {
-  const { manualNotes, slideNotes, slides, solveNotesRect, title } = options;
+  const { manualNotes, slides, solveNotesRect, title } = options;
   const slidesHtml = slides.map((slide, index) => {
     let svg = slide.svg;
     const manualText = manualNotes[index] ?? '';
@@ -30,11 +29,7 @@ export async function exportPresentation(options: ExportParams): Promise<void> {
       const foreignObject = buildSolveNotesForeignObject(manualText, solveNotesRect);
       svg = svg.replace(SVG_CLOSE_TAG, `${foreignObject}${SVG_CLOSE_TAG}`);
     }
-    const noteText = slideNotes[index] ?? slide.notes;
-    const notesHtml = noteText
-      ? `<aside class="notes">${escapeHtml(noteText)}</aside>`
-      : '';
-    return `<section>${svg}${notesHtml}</section>`;
+    return `<section>${svg}</section>`;
   }).join('\n');
 
   const musicBase64 = await fetchMusicBase64();
@@ -52,21 +47,6 @@ export async function exportPresentation(options: ExportParams): Promise<void> {
 .reveal .slides svg { max-width: 100%; max-height: 100%; }
 .cell-overlay { fill: none; }
 .clickable-label { pointer-events: none; }
-#notes-bar {
-  padding: 4px 16px;
-  background: #f5f5f5;
-  border-top: 1px solid #ddd;
-  box-sizing: border-box;
-}
-#slide-notes {
-  width: 100%;
-  padding: 4px 8px;
-  font-family: 'Segoe UI', sans-serif;
-  font-size: 13px;
-  color: #444;
-  box-sizing: border-box;
-  min-height: 1.5em;
-}
 </style>
 </head>
 <body>
@@ -75,28 +55,17 @@ export async function exportPresentation(options: ExportParams): Promise<void> {
 ${slidesHtml}
 </div>
 </div>
-<div id="notes-bar"><div id="slide-notes"></div></div>
 <script src="${REVEAL_DIST}/reveal.js">${CLOSE_SCRIPT}
-<script src="${REVEAL_CDN}/plugin/notes/notes.js">${CLOSE_SCRIPT}
 <script>
 Reveal.initialize({
   controls: true,
   hash: true,
   height: 540,
   mouseWheel: true,
-  plugins: [RevealNotes],
   slideNumber: true,
   transition: 'none',
   width: 960
 }).then(function() {
-  var notesEl = document.getElementById('slide-notes');
-  function updateNotes() {
-    var slide = Reveal.getCurrentSlide();
-    var aside = slide && slide.querySelector('aside.notes');
-    notesEl.textContent = aside ? aside.textContent : '';
-  }
-  Reveal.on('slidechanged', updateNotes);
-  updateNotes();
 ${
     musicBase64
       ? `  var bin = atob("${musicBase64}");

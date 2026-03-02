@@ -22,7 +22,7 @@ Interactive browser-based Mathdoku puzzle solver with Reveal.js presentations. T
 
 **Phase 2 — Export (static presentation):**
 1. Click "Export" when done
-2. Produces a self-contained Reveal.js HTML file (CSS/JS from CDN) with all SVG slides + speaker notes
+2. Produces a self-contained Reveal.js HTML file (CSS/JS from CDN) with all SVG slides + visible solve notes
 3. Open the exported file to present, record video, archive
 
 ### Key Files
@@ -37,7 +37,7 @@ Interactive browser-based Mathdoku puzzle solver with Reveal.js presentations. T
 - `src/app/main.ts` - Browser entry: YAML parsing, puzzle init, Reveal.js setup, keyboard shortcuts, undo, auto-save, server puzzle auto-load
 - `scripts/startSolver.ts` - CLI script: starts Vite dev server with puzzle YAML served at `/api/puzzle`
 - `src/app/RevealApp.ts` - Reveal.js deck management: `initializeReveal()`, `addSlides()`, `removeAfter()`, `navigateToLast()`
-- `src/app/EditPanel.ts` - Click-to-select cell editing panel with operation queue and mandatory comments
+- `src/app/EditPanel.ts` - Click-to-select cell editing panel with operation queue
 - `src/app/ExportService.ts` - Export static HTML presentation (Reveal.js CDN, all SVG slides + notes)
 - `src/app/StorageService.ts` - localStorage auto-save/restore (keyed by puzzle title)
 - `src/app/index.html` - App HTML shell (file picker + Reveal.js container + toolbar)
@@ -69,7 +69,7 @@ The app follows the same MVC pattern as the original:
 - **Strategies** (one file each): implement `Strategy` interface, called by Puzzle's strategy loop
 
 Flow:
-1. **Edit** (via EditPanel): User clicks cells, chooses operation, enters comment. Submit builds a command string, calls `puzzle.enter(cmd)` + `puzzle.commit()` + `puzzle.tryApplyAutomatedStrategies()`.
+1. **Edit** (via EditPanel): User clicks cells, chooses operation. Submit builds a command string, calls `puzzle.enter(cmd)` + `puzzle.commit()` + `puzzle.tryApplyAutomatedStrategies()`. Comments are optional (entered via solve notes panel after submit).
    - `=N` sets value, `digits` adds candidates, `-digits` strikethroughs candidates, `x` clears cell
    - Cell selection syntax (brackets optional for single cell/cage, required for groups):
      - `D3:op` or `(D3):op` — single cell
@@ -80,8 +80,6 @@ Flow:
      - `(A3..D4):op` — rectangular range (endpoints in any order)
      - `(@A3-B3):op` — cage of A3 minus B3
      - `(@A3-(B3 A4)):op` — cage of A3 minus multiple cells
-   - `// comment` at end of input is stripped from execution but included in slide notes
-   - Comment-only input (no commands) throws an error
 2. **Commit**: `renderCommittedChanges` builds pending SVG (green changes) then committed SVG (finalized) — both pushed as slides.
 3. **Automated strategies** run automatically after init and after each manual edit via `tryApplyAutomatedStrategies()`. No explicit trigger needed.
 
@@ -89,15 +87,16 @@ Flow:
 
 History stack of `{slideCount, cellState}` snapshots. On undo: pop entry, remove slides after `slideCount`, rebuild Puzzle from saved cell state (values + candidates). Keyboard shortcut: `Ctrl+Z`.
 
-### Slide Notes
+### Slide Notes (Visible Solve Notes Panel)
 
-Every action records its description in slide speaker notes for an audit trail:
-- **Init**: batch 1 = "Filling all possible cell candidates", batch 2 = "Filling single cell values and unique cage multisets"
-- **Enter**: the full input string (including `//` comments) is recorded
-- **Automated strategies**: "Applying automated strategies" on each step
-- Each action produces 2 slides (pending + committed), both get the note
+Notes appear in the on-slide solve notes panel (right-side columns), not as speaker notes. They are auto-populated and editable via textarea overlays (`manualNotes[]`).
 
-Note text is set via `PuzzleRenderer.setNoteText()` from business logic (`Puzzle.enter()`, `Puzzle.tryApplyAutomatedStrategies()`, `initPuzzleSlides()`), not from app callers.
+- **Init**: auto-populated from `slide.notes` (strategy descriptions on pending slides, empty on committed)
+- **Manual actions**: first pending slide gets `command\nTODO` (raw command + placeholder); all other slides use `slide.notes`
+- **Automated strategies**: strategy descriptions appear on pending slides only
+- Each action produces 2 slides (pending + committed); only pending slides carry note text in the renderer
+
+Note text is set via `PuzzleRenderer.setNoteText()` from strategies (`Puzzle.tryApplyAutomatedStrategies()`, `initPuzzleSlides()`). `Puzzle.enter()` does not set note text — the app layer handles manual action notes. `renderCommittedChanges()` clears `noteText` after use, so committed slides always get empty notes.
 
 ### localStorage Persistence (`StorageService.ts`)
 
@@ -105,6 +104,7 @@ Auto-saves after every action. Keyed by puzzle title with storage keys per puzzl
 - `mathdoku_{title}_state` — cell values and candidates
 - `mathdoku_{title}_slides` — all SVG slide snapshots
 - `mathdoku_{title}_history` — undo history stack
+- `mathdoku_{title}_manualNotes` — editable solve notes per slide
 
 ## TypeScript
 

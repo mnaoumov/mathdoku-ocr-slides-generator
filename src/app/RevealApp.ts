@@ -1,5 +1,4 @@
 import Reveal from 'reveal.js';
-import RevealNotes from 'reveal.js/plugin/notes/notes.esm.js';
 
 import type { SlideSnapshot } from '../SvgRenderer.ts';
 
@@ -26,24 +25,6 @@ export function getCurrentSlideIndex(): number {
   return deck.getIndices().h;
 }
 
-export function getSlideNotes(): string {
-  if (!deck) {
-    return '';
-  }
-  const indices = deck.getIndices();
-  const container = document.querySelector('.reveal .slides');
-  if (!container) {
-    return '';
-  }
-  const sections = container.querySelectorAll(':scope > section');
-  const section = sections[indices.h];
-  if (!section) {
-    return '';
-  }
-  const aside = section.querySelector('aside.notes');
-  return aside?.textContent ?? '';
-}
-
 export async function initializeReveal(slides: readonly SlideSnapshot[]): Promise<void> {
   const container = document.querySelector('.reveal .slides');
   if (!container) {
@@ -63,7 +44,6 @@ export async function initializeReveal(slides: readonly SlideSnapshot[]): Promis
     history: false,
     keyboard: true,
     mouseWheel: true,
-    plugins: [RevealNotes],
     progress: true,
     slideNumber: true,
     transition: 'none',
@@ -128,11 +108,5 @@ export function removeAfter(slideIndex: number): void {
 function appendSlideElement(container: Element, slide: SlideSnapshot): void {
   const section = document.createElement('section');
   section.innerHTML = slide.svg;
-  if (slide.notes) {
-    const aside = document.createElement('aside');
-    aside.className = 'notes';
-    aside.textContent = slide.notes;
-    section.appendChild(aside);
-  }
   container.appendChild(section);
 }

@@ -113,29 +113,6 @@ describe('Puzzle', () => {
       expect(puzzle.getCell('A1').getCandidates()).toEqual([]);
     });
 
-    it('strips comment and executes command', () => {
-      const puzzle = createTestPuzzle({ cages: SIZE_4_CAGES, hasOperators: true, puzzleSize: 4 });
-      puzzle.enter('A1:123 // setting candidates');
-      puzzle.commit();
-      expect(puzzle.getCell('A1').getCandidates()).toEqual([1, 2, 3]);
-    });
-
-    it('includes comment in note text', () => {
-      const renderer = new TrackingRenderer();
-      const puzzle = createTestPuzzle({ cages: SIZE_4_CAGES, hasOperators: true, puzzleSize: 4, renderer });
-      puzzle.enter('A1:123 // setting candidates');
-      puzzle.commit();
-      const noted = renderer.notesBySlide.filter((n) => n === 'A1:123 // setting candidates');
-      expect(noted).toHaveLength(2);
-    });
-
-    it('throws for comment-only input', () => {
-      const puzzle = createTestPuzzle({ cages: SIZE_4_CAGES, hasOperators: true, puzzleSize: 4 });
-      expect(() => {
-        puzzle.enter('// just a comment');
-      }).toThrow('No commands specified');
-    });
-
     it('throws for empty input', () => {
       const puzzle = createTestPuzzle({ cages: SIZE_4_CAGES, hasOperators: true, puzzleSize: 4 });
       expect(() => {
@@ -338,7 +315,7 @@ describe('tryApplyOneStrategyStep', () => {
 
     puzzle.tryApplyOneStrategyStep(createStrategies(2));
     const strategyNotes = renderer.notesBySlide.filter((n) => n.startsWith('Single candidate'));
-    expect(strategyNotes).toHaveLength(2);
+    expect(strategyNotes).toHaveLength(1);
   });
 });
 
@@ -418,7 +395,7 @@ describe('slide notes tracking', () => {
     { cells: ['A2', 'B2'], operator: Operator.Plus, value: 3 }
   ];
 
-  it('records note text on both pending and committed slides for enter+commit', () => {
+  it('records note text on pending slide only for enter+commit', () => {
     const renderer = new TrackingRenderer();
     const puzzle = createTestPuzzle({ cages: SIZE_2_CAGES, hasOperators: true, puzzleSize: 2, renderer });
     // Set up candidates directly
@@ -426,12 +403,13 @@ describe('slide notes tracking', () => {
       cell.setCandidates([1, 2]);
     }
 
+    renderer.setNoteText('A1:=1');
     puzzle.enter('A1:=1');
     puzzle.commit();
 
-    // Both the pending slide and committed slide should have the note
+    // Only the pending slide should have the note (committed gets empty)
     const notedSlides = renderer.notesBySlide.filter((n) => n === 'A1:=1');
-    expect(notedSlides).toHaveLength(2);
+    expect(notedSlides).toHaveLength(1);
   });
 
   it('records strategy-specific note for each strategy step', () => {
@@ -444,25 +422,27 @@ describe('slide notes tracking', () => {
 
     puzzle.tryApplyAutomatedStrategies();
 
-    // 2 strategy steps, each producing 2 slides (pending + committed) with strategy-specific notes
+    // 2 strategy steps, each producing notes only on the pending slide
     const strategyNotes = renderer.notesBySlide.filter((n) => n.startsWith('Single candidate:'));
-    expect(strategyNotes).toHaveLength(4);
+    expect(strategyNotes).toHaveLength(2);
   });
 
   it('records different notes for different operations', () => {
     const renderer = new TrackingRenderer();
     const puzzle = createTestPuzzle({ cages: SIZE_2_CAGES, hasOperators: true, puzzleSize: 2, renderer });
 
+    renderer.setNoteText('A1:12');
     puzzle.enter('A1:12');
     puzzle.commit();
 
+    renderer.setNoteText('B1:12');
     puzzle.enter('B1:12');
     puzzle.commit();
 
     const batch1Notes = renderer.notesBySlide.filter((n) => n === 'A1:12');
     const batch2Notes = renderer.notesBySlide.filter((n) => n === 'B1:12');
-    expect(batch1Notes).toHaveLength(2);
-    expect(batch2Notes).toHaveLength(2);
+    expect(batch1Notes).toHaveLength(1);
+    expect(batch2Notes).toHaveLength(1);
   });
 });
 
@@ -479,7 +459,6 @@ describe('initPuzzleSlides notes', () => {
     });
 
     expect(renderer.notesBySlide[0]).toBe('Filling all candidates');
-    expect(renderer.notesBySlide[1]).toBe('Filling all candidates');
   });
 
   it('produces at least 3 slides when init strategies apply', () => {
@@ -514,8 +493,7 @@ describe('initPuzzleSlides notes', () => {
 
     expect(renderer.slideCount).toBe(3);
     expect(renderer.notesBySlide[0]).toBe('Filling all candidates');
-    expect(renderer.notesBySlide[1]).toBe('Filling all candidates');
-    expect(renderer.notesBySlide[2]).toBeUndefined();
+    expect(renderer.notesBySlide[1]).toBeUndefined();
   });
 });
 

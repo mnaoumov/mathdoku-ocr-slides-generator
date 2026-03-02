@@ -209,8 +209,9 @@ export class SvgRenderer implements PuzzleRenderer {
 
     // Build committed SVG
     const committedSvg = this.buildSlideSvg(ctx, this.cellStates);
-    this.slides.push({ notes: this.noteText, svg: committedSvg });
+    this.slides.push({ notes: '', svg: committedSvg });
 
+    this.noteText = '';
     this.snapshot = new Map();
   }
 

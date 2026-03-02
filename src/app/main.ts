@@ -27,11 +27,9 @@ import { EditPanel } from './EditPanel.ts';
 import { exportPresentation } from './ExportService.ts';
 import {
   addSlides,
-  getCurrentSlideIndex,
   initializeReveal,
   navigateToFirst,
   navigateToLast,
-  onSlideChanged,
   removeAfter
 } from './RevealApp.ts';
 import {
@@ -100,32 +98,12 @@ function addSolveNotesOverlays(startIndex: number): void {
   }
 }
 
-function loadSlideNotesTextarea(): void {
-  const textarea = document.getElementById('slide-notes-textarea') as HTMLTextAreaElement | null;
-  if (!textarea) {
-    return;
-  }
-  const index = getCurrentSlideIndex();
-  textarea.value = slideNotes[index] ?? '';
-}
-
-function saveSlideNotesFromTextarea(): void {
-  const textarea = document.getElementById('slide-notes-textarea') as HTMLTextAreaElement | null;
-  if (!textarea) {
-    return;
-  }
-  const index = getCurrentSlideIndex();
-  slideNotes[index] = textarea.value;
-  autoSave();
-}
-
 let currentPuzzle: null | Puzzle = null;
 let currentRenderer: null | SvgRenderer = null;
 let currentSolveNotesRect: null | SolveNotesRect = null;
 let currentTitle = '';
 let historyStack: HistoryEntry[] = [];
 let manualNotes: string[] = [];
-let slideNotes: string[] = [];
 const editPanel = new EditPanel();
 
 function autoSave(): void {
@@ -136,7 +114,6 @@ function autoSave(): void {
   saveState(currentTitle, {
     history: historyStack,
     manualNotes,
-    slideNotes,
     slides: currentRenderer.slides,
     state
   });
@@ -229,12 +206,6 @@ function handleUndo(): void {
   // Remove slides from renderer and truncate notes
   currentRenderer.slides.length = entry.slideCount;
   manualNotes.length = entry.slideCount;
-  slideNotes.length = entry.slideCount;
-
-  // Restore the previous last slide's note (was overwritten by the shift)
-  if (entry.slideCount > 0 && entry.previousLastNote !== undefined) {
-    slideNotes[entry.slideCount - 1] = entry.previousLastNote;
-  }
 
   // Rebuild puzzle from saved cell state
   const puzzleJson = currentPuzzleJson;
@@ -268,38 +239,37 @@ function handleUndo(): void {
 
   editPanel.init(currentPuzzle, currentRenderer, { onActionComplete });
   editPanel.updateCellOverlays();
-  loadSlideNotesTextarea();
 
   autoSave();
 }
 
-function onActionComplete(slidesBefore: number): void {
+function onActionComplete(slidesBefore: number, command: string): void {
   if (!currentRenderer || !currentPuzzle) {
     return;
   }
 
-  // Save undo point (including the previous last slide's note for restore)
+  // Save undo point
   historyStack.push({
     cellState: extractCellState(currentPuzzle),
-    previousLastNote: slidesBefore > 0 ? slideNotes[slidesBefore - 1] ?? '' : '',
     slideCount: slidesBefore
   });
 
-  // Add new slides with shifted notes: each slide shows the next slide's notes,
-  // Matching the init-time shift pattern.
+  // Add new slides and populate manualNotes:
+  // First new pending slide gets command + TODO placeholder;
+  // All other slides use their slide.notes (strategy descriptions on pending, empty on committed).
   const newSlides = currentRenderer.slides.slice(slidesBefore);
-  if (slidesBefore > 0 && newSlides.length > 0) {
-    slideNotes[slidesBefore - 1] = newSlides[0]?.notes ?? '';
-  }
   for (let i = 0; i < newSlides.length; i++) {
-    slideNotes.push(newSlides[i + 1]?.notes ?? '');
+    if (i === 0) {
+      manualNotes.push(`${command}\nTODO`);
+    } else {
+      manualNotes.push(newSlides[i]?.notes ?? '');
+    }
   }
   addSlides(newSlides);
   addSolveNotesOverlays(slidesBefore);
 
   // Update cell click handlers
   editPanel.updateCellOverlays();
-  loadSlideNotesTextarea();
 
   autoSave();
 }
@@ -342,19 +312,13 @@ function initFromPuzzleJson(puzzleJson: PuzzleJson): void {
   });
   currentPuzzle = puzzle;
 
-  // Shift notes forward by one: the initial blank grid slide pairs with
-  // The first strategy's pending slide, so each slide shows the notes
-  // For the upcoming change. The last committed slide gets empty notes.
-  slideNotes = renderer.slides.map((_, i) => renderer.slides[i + 1]?.notes ?? '');
-  manualNotes = renderer.slides.map(() => '');
+  // Auto-populate manualNotes from slide notes (strategy descriptions on pending, empty on committed)
+  manualNotes = renderer.slides.map((slide) => slide.notes);
 
   initializeReveal(renderer.slides).then(() => {
     editPanel.init(puzzle, renderer, { onActionComplete });
     editPanel.updateCellOverlays();
     addSolveNotesOverlays(0);
-    onSlideChanged(loadSlideNotesTextarea);
-    loadSlideNotesTextarea();
-    setupSlideNotesTextarea();
     autoSave();
   }).catch((e: unknown) => {
     console.error('Failed to initialize Reveal.js', e);
@@ -427,16 +391,6 @@ function setupKeyboardShortcuts(): void {
   });
 }
 
-function setupSlideNotesTextarea(): void {
-  const textarea = document.getElementById('slide-notes-textarea') as HTMLTextAreaElement | null;
-  if (!textarea) {
-    return;
-  }
-  textarea.addEventListener('input', () => {
-    saveSlideNotesFromTextarea();
-  });
-}
-
 function setupToolbar(): void {
   const firstBtn = document.getElementById('btn-first');
   if (firstBtn) {
@@ -458,7 +412,6 @@ function setupToolbar(): void {
       if (currentRenderer && currentSolveNotesRect) {
         exportPresentation({
           manualNotes,
-          slideNotes,
           slides: currentRenderer.slides,
           solveNotesRect: currentSolveNotesRect,
           title: currentTitle

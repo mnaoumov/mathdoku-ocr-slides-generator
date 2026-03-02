@@ -8,7 +8,7 @@ enum OperationMode {
 }
 
 interface EditPanelCallbacks {
-  onActionComplete(slidesBefore: number): void;
+  onActionComplete(slidesBefore: number, command: string): void;
 }
 
 interface QueuedGroup {
@@ -81,7 +81,7 @@ export class EditPanel {
     this.updateQueueDisplay();
   }
 
-  private buildCommandString(comment: string): string {
+  private buildCommandString(): string {
     const parts: string[] = [];
     for (const group of this.queuedGroups) {
       const cellPart = group.cells.length === 1
@@ -107,11 +107,7 @@ export class EditPanel {
       parts.push(`${String(cellPart)}:${opPart}`);
     }
 
-    let cmd = parts.join(' ');
-    if (comment.trim()) {
-      cmd += ` // ${comment.trim()}`;
-    }
-    return cmd;
+    return parts.join(' ');
   }
 
   private buildPanel(): void {
@@ -154,10 +150,6 @@ export class EditPanel {
       <div class="edit-section">
         <label>Queue:</label>
         <div id="edit-queue" class="edit-queue"></div>
-      </div>
-      <div class="edit-section">
-        <label>Comment:</label>
-        <input type="text" id="edit-comment" class="edit-comment" placeholder="Required comment..."/>
       </div>
       <div class="edit-section edit-actions">
         <button class="btn-submit" id="edit-submit">Submit</button>
@@ -297,13 +289,6 @@ export class EditPanel {
       return;
     }
 
-    const commentInput = this.panel?.querySelector('#edit-comment') as HTMLInputElement | null;
-    const comment = commentInput?.value ?? '';
-    if (!comment.trim()) {
-      commentInput?.focus();
-      return;
-    }
-
     // If there are selected cells with digits, add them to queue first
     if (this.selectedCells.size > 0) {
       this.addToQueue();
@@ -314,7 +299,7 @@ export class EditPanel {
     }
 
     const slidesBefore = this.renderer.slideCount;
-    const cmd = this.buildCommandString(comment);
+    const cmd = this.buildCommandString();
 
     try {
       this.puzzle.enter(cmd);
@@ -328,11 +313,8 @@ export class EditPanel {
     }
 
     this.queuedGroups = [];
-    if (commentInput) {
-      commentInput.value = '';
-    }
     this.close();
-    this.callbacks.onActionComplete(slidesBefore);
+    this.callbacks.onActionComplete(slidesBefore, cmd);
   }
 
   private toggleCell(ref: string): void {
